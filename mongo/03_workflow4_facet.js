@@ -1,5 +1,5 @@
 
-const fs = require("fs"); 
+const fs = require("fs");
 const path = require("path");
 
 const targetDb = typeof db !== "undefined" ? db.getSiblingDB("stayspot") : new Mongo().getDB("stayspot");
@@ -12,15 +12,15 @@ print("=========================================================================
 function buildReviewAnalyticsPipeline(filterQuery = {}) {
   const pipeline = [];
 
-  
+
   if (filterQuery && Object.keys(filterQuery).length > 0) {
     pipeline.push({ $match: filterQuery });
   }
 
-  
+
   pipeline.push({
     $facet: {
-      
+
       rating_distributions: [
         {
           $group: {
@@ -29,7 +29,7 @@ function buildReviewAnalyticsPipeline(filterQuery = {}) {
           }
         },
         {
-          $sort: { _id: -1 } 
+          $sort: { _id: -1 }
         },
         {
           $project: {
@@ -40,8 +40,8 @@ function buildReviewAnalyticsPipeline(filterQuery = {}) {
         }
       ],
 
-      
-      
+
+
       most_frequent_tags: [
         {
           $unwind: {
@@ -106,7 +106,7 @@ function buildReviewAnalyticsPipeline(filterQuery = {}) {
     }
   });
 
-  
+
   pipeline.push({
     $project: {
       overall_summary: {

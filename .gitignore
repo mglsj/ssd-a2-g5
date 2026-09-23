@@ -3,3 +3,9 @@ venv/
 __pycache__/
 *.pyc
 .env
+
+# devenv
+.devenv/
+.devenv.flake.nix
+.direnv/
+devenv.local.nix

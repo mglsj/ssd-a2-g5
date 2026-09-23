@@ -26,7 +26,12 @@
       "validation": {
         "validationLevel": "strict on create / moderate on collMod (see ensureCollectionWithValidator in 01_collections_and_indexes.js)",
         "validationAction": "error",
-        "required": ["property_id", "amenities", "house_rules", "accessibility_features"],
+        "required": [
+          "property_id",
+          "amenities",
+          "house_rules",
+          "accessibility_features"
+        ],
         "additionalProperties": true
       },
       "fields": {
@@ -77,13 +82,17 @@
       "indexes": [
         {
           "name": "idx_amenities_property_id_unique",
-          "key": { "property_id": 1 },
+          "key": {
+            "property_id": 1
+          },
           "unique": true,
           "purpose": "One amenities document per property; also the lookup path for property detail pages"
         },
         {
           "name": "idx_amenities_catalog",
-          "key": { "amenities": 1 },
+          "key": {
+            "amenities": 1
+          },
           "unique": false,
           "purpose": "Multikey index supporting 'find properties with amenity X' style catalog filtering"
         }
@@ -96,19 +105,53 @@
       "validation": {
         "validationLevel": "strict on create / moderate on collMod",
         "validationAction": "error",
-        "required": ["property_id", "guest_id", "rating", "location_tags", "review_text", "created_at"],
+        "required": [
+          "property_id",
+          "guest_id",
+          "rating",
+          "location_tags",
+          "review_text",
+          "created_at"
+        ],
         "additionalProperties": "not restricted (no additionalProperties:false set)"
       },
       "fields": {
-        "property_id": { "bsonType": "string", "required": true, "pattern": "UUID v4 string", "description": "FK to postgres.properties.id" },
-        "guest_id": { "bsonType": "string", "required": true, "pattern": "UUID v4 string", "description": "FK to postgres.guests.id" },
-        "booking_id": { "bsonType": "string", "required": false, "description": "Optional FK to postgres.bookings.id (no pattern/format check applied, unlike property_id/guest_id)" },
-        "rating": { "bsonType": "int|double|decimal", "required": true, "minimum": 1, "maximum": 5, "description": "Overall star rating" },
+        "property_id": {
+          "bsonType": "string",
+          "required": true,
+          "pattern": "UUID v4 string",
+          "description": "FK to postgres.properties.id"
+        },
+        "guest_id": {
+          "bsonType": "string",
+          "required": true,
+          "pattern": "UUID v4 string",
+          "description": "FK to postgres.guests.id"
+        },
+        "booking_id": {
+          "bsonType": "string",
+          "required": false,
+          "description": "Optional FK to postgres.bookings.id (no pattern/format check applied, unlike property_id/guest_id)"
+        },
+        "rating": {
+          "bsonType": "int|double|decimal",
+          "required": true,
+          "minimum": 1,
+          "maximum": 5,
+          "description": "Overall star rating"
+        },
         "sub_ratings": {
           "bsonType": "object",
           "required": false,
           "description": "Optional per-category ratings, each bounded 1-5",
-          "properties": ["cleanliness", "accuracy", "communication", "location", "check_in", "value"]
+          "properties": [
+            "cleanliness",
+            "accuracy",
+            "communication",
+            "location",
+            "check_in",
+            "value"
+          ]
         },
         "location_tags": {
           "bsonType": "array<string>",
@@ -116,14 +159,48 @@
           "minItems": 1,
           "description": "Free-text descriptive tags (e.g. 'downtown', 'walkable') — the field $unwind'd in Workflow 4's most_frequent_tags facet"
         },
-        "review_text": { "bsonType": "string", "required": true, "minLength": 3, "description": "Guest-authored review body" },
-        "created_at": { "bsonType": "date", "required": true, "description": "Review submission timestamp" }
+        "review_text": {
+          "bsonType": "string",
+          "required": true,
+          "minLength": 3,
+          "description": "Guest-authored review body"
+        },
+        "created_at": {
+          "bsonType": "date",
+          "required": true,
+          "description": "Review submission timestamp"
+        }
       },
       "indexes": [
-        { "name": "idx_reviews_property_created", "key": { "property_id": 1, "created_at": -1 }, "purpose": "Per-property review feed, most recent first" },
-        { "name": "idx_reviews_rating", "key": { "rating": 1 }, "purpose": "Supports rating_distributions facet / rating filters" },
-        { "name": "idx_reviews_location_tags", "key": { "location_tags": 1 }, "purpose": "Multikey index over location_tags array for tag-based lookups" },
-        { "name": "idx_reviews_guest_id", "key": { "guest_id": 1 }, "purpose": "'My reviews' lookups by guest" }
+        {
+          "name": "idx_reviews_property_created",
+          "key": {
+            "property_id": 1,
+            "created_at": -1
+          },
+          "purpose": "Per-property review feed, most recent first"
+        },
+        {
+          "name": "idx_reviews_rating",
+          "key": {
+            "rating": 1
+          },
+          "purpose": "Supports rating_distributions facet / rating filters"
+        },
+        {
+          "name": "idx_reviews_location_tags",
+          "key": {
+            "location_tags": 1
+          },
+          "purpose": "Multikey index over location_tags array for tag-based lookups"
+        },
+        {
+          "name": "idx_reviews_guest_id",
+          "key": {
+            "guest_id": 1
+          },
+          "purpose": "'My reviews' lookups by guest"
+        }
       ],
       "observed_query_behavior": {
         "workflow4_global_facet": "The unfiltered Workflow 4 pipeline ($facet with no preceding $match) does a COLLSCAN, since none of the four indexes above cover 'match everything'. Per-property calls (buildReviewAnalyticsPipeline({property_id})) would use idx_reviews_property_created instead. See performance/postgres_explain_analyzes.txt and performance/mongo_execution_stats.json (workflow4_facet) for captured numbers."
@@ -137,42 +214,89 @@
       "validation": {
         "validationLevel": "strict on create / moderate on collMod",
         "validationAction": "error",
-        "required": ["session_id", "user_id", "location", "created_at"],
+        "required": [
+          "session_id",
+          "user_id",
+          "location",
+          "created_at"
+        ],
         "additionalProperties": "not restricted"
       },
       "fields": {
-        "session_id": { "bsonType": "string", "required": true, "description": "Unique tracking id for the pin-drop event (seeder format: sess-<12 hex chars>)" },
-        "user_id": { "bsonType": "string", "required": true, "description": "Guest or anonymous searcher identifier — no UUID pattern enforced here, unlike PropertyReviews.guest_id" },
+        "session_id": {
+          "bsonType": "string",
+          "required": true,
+          "description": "Unique tracking id for the pin-drop event (seeder format: sess-<12 hex chars>)"
+        },
+        "user_id": {
+          "bsonType": "string",
+          "required": true,
+          "description": "Guest or anonymous searcher identifier — no UUID pattern enforced here, unlike PropertyReviews.guest_id"
+        },
         "location": {
           "bsonType": "object",
           "required": true,
           "description": "GeoJSON Point",
           "subfields": {
-            "type": { "enum": ["Point"] },
-            "coordinates": { "bsonType": "array<double|int|long|decimal>", "minItems": 2, "maxItems": 2, "order": "[longitude, latitude]" }
+            "type": {
+              "enum": [
+                "Point"
+              ]
+            },
+            "coordinates": {
+              "bsonType": "array<double|int|long|decimal>",
+              "minItems": 2,
+              "maxItems": 2,
+              "order": "[longitude, latitude]"
+            }
           }
         },
-        "search_radius_meters": { "bsonType": "int|double", "required": false, "minimum": 100, "maximum": 100000, "description": "Requested search radius; not set by the current seeder even though the schema allows it" },
-        "filters": { "bsonType": "object", "required": false, "description": "Search criteria snapshot (min_price, max_price, min_rating, required_amenities, check_in_date, guests, instant_book)" },
-        "device_info": { "bsonType": "object", "required": false, "description": "platform / app_version / device_model" },
-        "created_at": { "bsonType": "date", "required": true, "description": "Pin-drop timestamp; governs the 2-hour TTL expiry" }
+        "search_radius_meters": {
+          "bsonType": "int|double",
+          "required": false,
+          "minimum": 100,
+          "maximum": 100000,
+          "description": "Requested search radius; not set by the current seeder even though the schema allows it"
+        },
+        "filters": {
+          "bsonType": "object",
+          "required": false,
+          "description": "Search criteria snapshot (min_price, max_price, min_rating, required_amenities, check_in_date, guests, instant_book)"
+        },
+        "device_info": {
+          "bsonType": "object",
+          "required": false,
+          "description": "platform / app_version / device_model"
+        },
+        "created_at": {
+          "bsonType": "date",
+          "required": true,
+          "description": "Pin-drop timestamp; governs the 2-hour TTL expiry"
+        }
       },
       "indexes": [
         {
           "name": "idx_searchsessions_location_2dsphere",
-          "key": { "location": "2dsphere" },
+          "key": {
+            "location": "2dsphere"
+          },
           "purpose": "Backs $geoNear / $near queries (Workflow 3 hotspot clustering)",
           "confirmed_used_by": "GEO_NEAR_2DSPHERE stage in the Workflow 3 winningPlan (see performance/mongo_execution_stats.json -> workflow3_geoNear)"
         },
         {
           "name": "idx_searchsessions_created_at_ttl_2h",
-          "key": { "created_at": 1 },
+          "key": {
+            "created_at": 1
+          },
           "expireAfterSeconds": 7200,
           "purpose": "TTL — background thread deletes documents ~2 hours after created_at"
         },
         {
           "name": "idx_searchsessions_user_time",
-          "key": { "user_id": 1, "created_at": -1 },
+          "key": {
+            "user_id": 1,
+            "created_at": -1
+          },
           "purpose": "Per-user recent-search lookups; not exercised by Workflow 3 or 4"
         }
       ],

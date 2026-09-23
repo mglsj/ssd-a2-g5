@@ -75,7 +75,7 @@ const propertyAmenitiesValidator = {
         description: "Timestamp of last catalog update"
       }
     },
-    additionalProperties: true 
+    additionalProperties: true
   }
 };
 
@@ -311,7 +311,7 @@ print("=========================================================================
 
 print("\n--- SearchSessions Indexes ---");
 targetDb.SearchSessions.getIndexes().forEach(idx => {
-  print(`  * ${idx.name}: ${JSON.stringify(idx.key)} ${idx.expireAfterSeconds ? `(TTL: ${idx.expireAfterSeconds}s / ${idx.expireAfterSeconds/3600}h)` : ""}`);
+  print(`  * ${idx.name}: ${JSON.stringify(idx.key)} ${idx.expireAfterSeconds ? `(TTL: ${idx.expireAfterSeconds}s / ${idx.expireAfterSeconds / 3600}h)` : ""}`);
 });
 
 print("\n--- PropertyReviews Indexes ---");

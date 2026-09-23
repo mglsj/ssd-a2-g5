@@ -1,0 +1,15 @@
+[project]
+name = "stayspot-data-generation"
+version = "0.1.0"
+description = "Mock-data seeders for the StaySpot PostgreSQL + MongoDB databases"
+requires-python = ">=3.11"
+dependencies = [
+    "faker>=20.0.0",
+    "psycopg2-binary>=2.9.9",
+    "pydantic>=2.7.0",
+    "pymongo>=4.6.0",
+]
+
+[tool.uv]
+# The seeders are standalone scripts, not an installable package.
+package = false

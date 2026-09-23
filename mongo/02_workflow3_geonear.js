@@ -8,8 +8,8 @@ print("Workflow 3: Trending Search Hotspots Pipeline");
 print("Database: " + targetDb.getName());
 print("================================================================================\n");
 const TARGET_COORDINATES = [-122.4194, 37.7749];
-const MAX_RADIUS_METERS = 5000; 
-const RECENCY_WINDOW_HOURS = 2; 
+const MAX_RADIUS_METERS = 5000;
+const RECENCY_WINDOW_HOURS = 2;
 const RECENCY_CUTOFF = new Date(Date.now() - RECENCY_WINDOW_HOURS * 60 * 60 * 1000);
 
 print(`Target Center Coordinates : [Longitude: ${TARGET_COORDINATES[0]}, Latitude: ${TARGET_COORDINATES[1]}]`);
