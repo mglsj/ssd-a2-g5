@@ -14,15 +14,15 @@
       "PropertyAmenities.property_id -> postgres.properties.id",
       "PropertyReviews.property_id -> postgres.properties.id",
       "PropertyReviews.guest_id -> postgres.guests.id",
-      "PropertyReviews.booking_id -> postgres.bookings.id (optional, no format validation applied)",
-      "SearchSessions.user_id -> postgres.guests.id OR an anonymous/pre-signup identifier (schema does not restrict format, unlike property_id/guest_id in the other two collections)"
+      "PropertyReviews.booking_id -> postgres.bookings.id (a COMPLETED booking of the same guest and property; no format validation applied)",
+      "SearchSessions.user_id -> postgres.guests.id (the seeder uses real guest ids when PostgreSQL is reachable; the schema does not restrict the format)"
     ]
   },
   "collections": {
     "PropertyAmenities": {
       "purpose": "Flexible catalog document per property: general amenities plus nested house_rules / accessibility_features arrays that can mix free-text strings and structured rule objects.",
       "document_count_seeded": 1000,
-      "seeding_note": "Populated by data_generation/mongo_seeder.py --seed-all. Generates one document per property with randomized amenities, house_rules, accessibility_features, and optional safety_features/host_guidelines.",
+      "seeding_note": "Populated by data_generation/mongo_seeder.py --seed-all. One document per PostgreSQL property, with property_title copied from properties.title, random amenities, house_rules and accessibility_features without duplicates, and optional safety_features/host_guidelines.",
       "validation": {
         "validationLevel": "strict on create / moderate on collMod (see ensureCollectionWithValidator in 01_collections_and_indexes.js)",
         "validationAction": "error",
@@ -100,8 +100,8 @@
     },
     "PropertyReviews": {
       "purpose": "One document per guest review: overall + optional sub-category ratings, free-text location tags used for review analytics, and review text.",
-      "document_count_seeded": "5000 (5 per property x 1000 properties, configurable via --reviews-per-property)",
-      "seeding_note": "Populated by data_generation/mongo_seeder.py --seed-all. Generates reviews with realistic rating distributions (3-5 stars), optional sub_ratings, location_tags, and review_text. The 128-document count in performance/mongo_execution_stats.json was from a prior ad-hoc/manual dataset.",
+      "document_count_seeded": "5000 (up to 5 per property x 1000 properties, configurable via --reviews-per-property)",
+      "seeding_note": "Populated by data_generation/mongo_seeder.py --seed-all. Each review belongs to a COMPLETED booking loaded from PostgreSQL, so property_id, guest_id and booking_id point at real rows, and created_at falls 1 to 14 days after checkout. Ratings cover 1 to 5 stars (about 5/7/15/33/40 percent) and review_text matches the rating.",
       "validation": {
         "validationLevel": "strict on create / moderate on collMod",
         "validationAction": "error",
@@ -203,14 +203,14 @@
         }
       ],
       "observed_query_behavior": {
-        "workflow4_global_facet": "The unfiltered Workflow 4 pipeline ($facet with no preceding $match) does a COLLSCAN, since none of the four indexes above cover 'match everything'. Per-property calls (buildReviewAnalyticsPipeline({property_id})) would use idx_reviews_property_created instead. See performance/postgres_explain_analyzes.txt and performance/mongo_execution_stats.json (workflow4_facet) for captured numbers."
+        "workflow4_global_facet": "The unfiltered Workflow 4 pipeline ($facet with no preceding $match) does a COLLSCAN, because no index can narrow 'all reviews'. The per-property run in mongo/03_workflow4_facet.js uses idx_reviews_property_created; its plan is entry 1 of performance/mongo_execution_stats.json. rating_distributions always returns all five star levels, with a count of 0 for missing ones."
       }
     },
     "SearchSessions": {
       "purpose": "Ephemeral geospatial telemetry: every map pin-drop a guest makes while searching, auto-expired after 2 hours via TTL index.",
       "document_count_seeded": 500000,
-      "document_count_observed_at_query_time": "~529712 examined / 264856 matched within the workflow-3 $geoNear + created_at filter (see below) — lower than 500000 because the TTL index continuously expires sessions older than 2 hours",
-      "seeding_note": "The only collection actually populated by data_generation/mongo_seeder.py (target_count default 500000, weighted across 12 in-range + 4 out-of-range SF hotspots).",
+      "document_count_observed_at_query_time": "454,315 of the 500,000 seeded pins fall within 5 km of the default center in the last 2 hours (explain run right after seeding). The TTL index removes every seeded pin 2 hours after it was created, so run mongo_seeder.py --live to keep fresh pins coming.",
+      "seeding_note": "data_generation/mongo_seeder.py inserts 500,000 pins by default, weighted across 12 in-range and 4 out-of-range Hyderabad hotspots around Jubilee Hills (17.44, 78.40), with created_at in the last 115 minutes. --live keeps inserting pins with created_at = now.",
       "validation": {
         "validationLevel": "strict on create / moderate on collMod",
         "validationAction": "error",
@@ -231,7 +231,7 @@
         "user_id": {
           "bsonType": "string",
           "required": true,
-          "description": "Guest or anonymous searcher identifier — no UUID pattern enforced here, unlike PropertyReviews.guest_id"
+          "description": "Guest id copied from postgres.guests when the seeder can reach PostgreSQL. No UUID pattern is enforced here, unlike PropertyReviews.guest_id"
         },
         "location": {
           "bsonType": "object",
@@ -281,7 +281,7 @@
             "location": "2dsphere"
           },
           "purpose": "Backs $geoNear / $near queries (Workflow 3 hotspot clustering)",
-          "confirmed_used_by": "GEO_NEAR_2DSPHERE stage in the Workflow 3 winningPlan (see performance/mongo_execution_stats.json -> workflow3_geoNear)"
+          "confirmed_used_by": "GEO_NEAR_2DSPHERE stage in the Workflow 3 winningPlan (entry 0 of performance/mongo_execution_stats.json)"
         },
         {
           "name": "idx_searchsessions_created_at_ttl_2h",
@@ -301,7 +301,7 @@
         }
       ],
       "observed_query_behavior": {
-        "workflow3_geonear": "$geoNear plans as FETCH -> GEO_NEAR_2DSPHERE using idx_searchsessions_location_2dsphere for the spatial bound, then applies the created_at >= cutoff filter as a post-fetch FETCH-stage filter (not index-covered). 264,856 of 529,712 examined docs matched within the 5km / 2h window in the captured run (909ms). A compound index such as {location:\"2dsphere\", created_at:1} is not supported by MongoDB for 2dsphere + range together in a single scan the way it is here, so this filter cost is expected, not a misconfiguration."
+        "workflow3_geonear": "$geoNear plans as FETCH -> GEO_NEAR_2DSPHERE using idx_searchsessions_location_2dsphere for the spatial bound, then applies the created_at >= cutoff filter as a post-fetch FETCH-stage filter (not index-covered). In the captured run the plan examined 920,059 documents and returned 454,315 within the 5 km / 2 h window, taking about 4 s under explain. A compound index such as {location:\"2dsphere\", created_at:1} is not supported by MongoDB for 2dsphere + range together in a single scan the way it is here, so this filter cost is expected, not a misconfiguration."
       }
     }
   },

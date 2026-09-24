@@ -1,35 +1,153 @@
-                                                                        QUERY PLAN                                                                         
------------------------------------------------------------------------------------------------------------------------------------------------------------
- "Sort  (cost=7475.61..7529.48 rows=21548 width=124) (actual time=120.483..121.508 rows=21568.00 loops=1)"
-"  Sort Key: (dense_rank() OVER w1), moving_avg.property_id, moving_avg.booking_date"
-"  Sort Method: quicksort  Memory: 2319kB"
-"  Buffers: shared hit=746"
-"  ->  WindowAgg  (cost=5493.72..5924.67 rows=21548 width=124) (actual time=86.240..110.327 rows=21568.00 loops=1)"
-"        Window: w1 AS (ORDER BY moving_avg.moving_avg_7d ROWS UNBOUNDED PRECEDING)"
-"        Storage: Memory  Maximum Storage: 17kB"
-"        Buffers: shared hit=737"
-"        ->  Sort  (cost=5493.71..5547.58 rows=21548 width=84) (actual time=85.675..91.186 rows=21568.00 loops=1)"
-"              Sort Key: moving_avg.moving_avg_7d DESC"
-"              Sort Method: quicksort  Memory: 1985kB"
-"              Buffers: shared hit=737"
-"              ->  Subquery Scan on moving_avg  (cost=3026.94..3942.76 rows=21548 width=84) (actual time=15.741..70.938 rows=21568.00 loops=1)"
-"                    Buffers: shared hit=734"
-"                    ->  WindowAgg  (cost=3026.94..3942.76 rows=21548 width=84) (actual time=15.739..67.774 rows=21568.00 loops=1)"
-"                          Window: w1 AS (PARTITION BY bookings.property_id ORDER BY (date(bookings.created_at)) ROWS BETWEEN '6'::bigint PRECEDING AND CURRENT ROW)"
-"                          Storage: Memory  Maximum Storage: 17kB"
-"                          Buffers: shared hit=734"
-"                          ->  GroupAggregate  (cost=3026.90..3565.67 rows=21548 width=52) (actual time=15.714..39.827 rows=21568.00 loops=1)"
-"                                Group Key: bookings.property_id, (date(bookings.created_at))"
-"                                Buffers: shared hit=734"
-"                                ->  Sort  (cost=3026.90..3080.79 rows=21555 width=26) (actual time=14.849..21.233 rows=21699.00 loops=1)"
-"                                      Sort Key: bookings.property_id, (date(bookings.created_at))"
-"                                      Sort Method: quicksort  Memory: 1786kB"
-"                                      Buffers: shared hit=734"
-"                                      ->  Seq Scan on bookings  (cost=0.00..1475.40 rows=21555 width=26) (actual time=0.632..8.813 rows=21699.00 loops=1)"
-"                                            Filter: ((status)::text = 'COMPLETED'::text)"
-"                                            Rows Removed by Filter: 33302"
-"                                            Buffers: shared hit=734"
-"Planning:"
-"  Buffers: shared hit=151"
-"Planning Time: 5.174 ms"
-"Execution Time: 126.313 ms"
+                                                      version                                                       
+--------------------------------------------------------------------------------------------------------------------
+ PostgreSQL 18.6 (Debian 18.6-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+
+
+==== Workflow 2: 7-day moving average for one property over 90 days
+                                                                                                                                                           QUERY PLAN                                                                                                                                                           
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=24.07..24.15 rows=32 width=116) (actual time=0.176..0.179 rows=91.00 loops=1)
+   Sort Key: m.property_id, m.day
+   Sort Method: quicksort  Memory: 32kB
+   Buffers: shared hit=10
+   ->  Subquery Scan on m  (cost=18.68..23.27 rows=32 width=116) (actual time=0.087..0.152 rows=91.00 loops=1)
+         Filter: (m.day >= (CURRENT_DATE - 90))
+         Rows Removed by Filter: 6
+         Buffers: shared hit=7
+         ->  WindowAgg  (cost=18.68..21.50 rows=97 width=111) (actual time=0.081..0.141 rows=97.00 loops=1)
+               Window: w1 AS (ORDER BY ((d.d)::date) ROWS BETWEEN '6'::bigint PRECEDING AND CURRENT ROW)
+               Storage: Memory  Maximum Storage: 17kB
+               Buffers: shared hit=7
+               ->  Merge Left Join  (cost=18.65..19.80 rows=97 width=79) (actual time=0.073..0.086 rows=97.00 loops=1)
+                     Merge Cond: (((d.d)::date) = r.day)
+                     Buffers: shared hit=7
+                     ->  Sort  (cost=13.45..13.69 rows=97 width=51) (actual time=0.042..0.045 rows=97.00 loops=1)
+                           Sort Key: ((d.d)::date)
+                           Sort Method: quicksort  Memory: 32kB
+                           Buffers: shared hit=3
+                           ->  Nested Loop  (cost=0.29..10.25 rows=97 width=51) (actual time=0.018..0.029 rows=97.00 loops=1)
+                                 Buffers: shared hit=3
+                                 ->  Index Scan using properties_pkey on properties p  (cost=0.28..8.29 rows=1 width=43) (actual time=0.005..0.006 rows=1.00 loops=1)
+                                       Index Cond: (id = '0061687e-4957-4c5e-8195-51f5be0f2acd'::uuid)
+                                       Index Searches: 1
+                                       Buffers: shared hit=3
+                                 ->  Function Scan on generate_series d  (cost=0.02..0.99 rows=97 width=8) (actual time=0.011..0.014 rows=97.00 loops=1)
+                     ->  Sort  (cost=5.20..5.23 rows=10 width=52) (actual time=0.030..0.030 rows=7.00 loops=1)
+                           Sort Key: r.day
+                           Sort Method: quicksort  Memory: 25kB
+                           Buffers: shared hit=4
+                           ->  Subquery Scan on r  (cost=4.76..5.04 rows=10 width=52) (actual time=0.022..0.024 rows=7.00 loops=1)
+                                 Buffers: shared hit=4
+                                 ->  HashAggregate  (cost=4.76..4.94 rows=10 width=52) (actual time=0.022..0.023 rows=7.00 loops=1)
+                                       Group Key: ((b.created_at AT TIME ZONE 'UTC'::text))::date
+                                       Batches: 1  Memory Usage: 32kB
+                                       Buffers: shared hit=4
+                                       ->  Index Only Scan using idx_bookings_completed_property_date on bookings b  (cost=0.44..4.71 rows=10 width=28) (actual time=0.015..0.016 rows=7.00 loops=1)
+                                             Index Cond: ((property_id = '0061687e-4957-4c5e-8195-51f5be0f2acd'::uuid) AND (created_at >= ((((CURRENT_DATE - 90) - 6))::timestamp without time zone AT TIME ZONE 'UTC'::text)) AND (created_at < (((CURRENT_DATE + 1))::timestamp without time zone AT TIME ZONE 'UTC'::text)))
+                                             Heap Fetches: 0
+                                             Index Searches: 1
+                                             Buffers: shared hit=4
+ Planning:
+   Buffers: shared hit=266
+ Planning Time: 0.846 ms
+ Execution Time: 0.268 ms
+
+
+==== Workflow 2: properties ranked by 7-day moving average (DENSE_RANK)
+                                                                                                                                   QUERY PLAN                                                                                                                                   
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=1247.23..1253.06 rows=2333 width=88) (actual time=5.339..5.340 rows=10.00 loops=1)
+   Sort Key: (dense_rank() OVER w1), m.title
+   Sort Method: quicksort  Memory: 25kB
+   Buffers: shared hit=928
+   ->  WindowAgg  (cost=1075.91..1116.72 rows=2333 width=88) (actual time=5.326..5.331 rows=10.00 loops=1)
+         Window: w1 AS (ORDER BY m.moving_avg_7d ROWS UNBOUNDED PRECEDING)
+         Run Condition: (dense_rank() OVER w1 <= 10)
+         Storage: Memory  Maximum Storage: 17kB
+         Buffers: shared hit=922
+         ->  Sort  (cost=1075.90..1081.73 rows=2333 width=80) (actual time=5.322..5.323 rows=11.00 loops=1)
+               Sort Key: m.moving_avg_7d DESC
+               Sort Method: quicksort  Memory: 90kB
+               Buffers: shared hit=922
+               ->  Subquery Scan on m  (cost=77.31..945.39 rows=2333 width=80) (actual time=0.140..5.170 rows=1000.00 loops=1)
+                     Buffers: shared hit=919
+                     ->  Subquery Scan on m_1  (cost=77.31..922.06 rows=2333 width=116) (actual time=0.140..5.116 rows=1000.00 loops=1)
+                           Filter: (m_1.day >= CURRENT_DATE)
+                           Rows Removed by Filter: 6000
+                           Buffers: shared hit=919
+                           ->  WindowAgg  (cost=77.31..811.23 rows=7000 width=111) (actual time=0.136..4.797 rows=7000.00 loops=1)
+                                 Window: w1 AS (PARTITION BY p.id ORDER BY ((d.d)::date) ROWS BETWEEN '6'::bigint PRECEDING AND CURRENT ROW)
+                                 Storage: Memory  Maximum Storage: 17kB
+                                 Buffers: shared hit=919
+                                 ->  Incremental Sort  (cost=77.21..671.23 rows=7000 width=79) (actual time=0.125..2.729 rows=7000.00 loops=1)
+                                       Sort Key: p.id, ((d.d)::date)
+                                       Presorted Key: p.id
+                                       Full-sort Groups: 200  Sort Method: quicksort  Average Memory: 27kB  Peak Memory: 27kB
+                                       Buffers: shared hit=919
+                                       ->  Merge Left Join  (cost=76.72..465.47 rows=7000 width=79) (actual time=0.107..1.796 rows=7000.00 loops=1)
+                                             Merge Cond: (p.id = b.property_id)
+                                             Join Filter: ((((b.created_at AT TIME ZONE 'UTC'::text))::date) = (d.d)::date)
+                                             Rows Removed by Join Filter: 1720
+                                             Buffers: shared hit=919
+                                             ->  Nested Loop  (cost=0.29..235.29 rows=7000 width=51) (actual time=0.007..0.837 rows=7000.00 loops=1)
+                                                   Buffers: shared hit=913
+                                                   ->  Index Scan using properties_pkey on properties p  (cost=0.28..95.27 rows=1000 width=43) (actual time=0.003..0.164 rows=1000.00 loops=1)
+                                                         Index Searches: 1
+                                                         Buffers: shared hit=913
+                                                   ->  Function Scan on generate_series d  (cost=0.02..0.09 rows=7 width=8) (actual time=0.000..0.000 rows=7.00 loops=1000)
+                                             ->  Materialize  (cost=76.43..103.19 rows=669 width=52) (actual time=0.099..0.289 rows=1721.00 loops=1)
+                                                   Storage: Memory  Maximum Storage: 17kB
+                                                   Buffers: shared hit=6
+                                                   ->  GroupAggregate  (cost=76.43..94.83 rows=669 width=52) (actual time=0.099..0.211 rows=294.00 loops=1)
+                                                         Group Key: b.property_id, (((b.created_at AT TIME ZONE 'UTC'::text))::date)
+                                                         Buffers: shared hit=6
+                                                         ->  Sort  (cost=76.43..78.10 rows=669 width=28) (actual time=0.095..0.105 rows=301.00 loops=1)
+                                                               Sort Key: b.property_id, (((b.created_at AT TIME ZONE 'UTC'::text))::date)
+                                                               Sort Method: quicksort  Memory: 39kB
+                                                               Buffers: shared hit=6
+                                                               ->  Index Only Scan using idx_bookings_completed_date on bookings b  (cost=0.31..45.03 rows=669 width=28) (actual time=0.014..0.053 rows=301.00 loops=1)
+                                                                     Index Cond: ((created_at >= (((CURRENT_DATE - 6))::timestamp without time zone AT TIME ZONE 'UTC'::text)) AND (created_at < (((CURRENT_DATE + 1))::timestamp without time zone AT TIME ZONE 'UTC'::text)))
+                                                                     Heap Fetches: 0
+                                                                     Index Searches: 1
+                                                                     Buffers: shared hit=6
+ Planning:
+   Buffers: shared hit=267
+ Planning Time: 0.549 ms
+ Execution Time: 5.377 ms
+
+
+==== idx_active_stay: current CHECKED_IN booking of one guest
+                                                          QUERY PLAN                                                          
+------------------------------------------------------------------------------------------------------------------------------
+ Index Scan using idx_active_stay on bookings  (cost=0.28..8.30 rows=1 width=16) (actual time=0.009..0.010 rows=1.00 loops=1)
+   Index Cond: (guest_id = '0004a994-b069-4eb8-86e4-d25e9ca1b475'::uuid)
+   Index Searches: 1
+   Buffers: shared hit=3
+ Planning:
+   Buffers: shared hit=3
+ Planning Time: 0.076 ms
+ Execution Time: 0.015 ms
+
+
+==== Audit trail: one guest, last 90 days, newest first
+                                                                       QUERY PLAN                                                                       
+--------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=19.88..19.89 rows=4 width=30) (actual time=0.028..0.029 rows=8.00 loops=1)
+   Buffers: shared hit=7
+   ->  Sort  (cost=19.88..19.89 rows=4 width=30) (actual time=0.027..0.028 rows=8.00 loops=1)
+         Sort Key: "timestamp" DESC
+         Sort Method: quicksort  Memory: 25kB
+         Buffers: shared hit=7
+         ->  Bitmap Heap Scan on wallet_audit_logs  (cost=4.46..19.84 rows=4 width=30) (actual time=0.019..0.020 rows=8.00 loops=1)
+               Recheck Cond: ((guest_id = '0004a994-b069-4eb8-86e4-d25e9ca1b475'::uuid) AND ("timestamp" >= (now() - '90 days'::interval)))
+               Heap Blocks: exact=1
+               Buffers: shared hit=4
+               ->  Bitmap Index Scan on idx_wallet_audit_logs_guest_time  (cost=0.00..4.46 rows=4 width=0) (actual time=0.011..0.011 rows=8.00 loops=1)
+                     Index Cond: ((guest_id = '0004a994-b069-4eb8-86e4-d25e9ca1b475'::uuid) AND ("timestamp" >= (now() - '90 days'::interval)))
+                     Index Searches: 1
+                     Buffers: shared hit=3
+ Planning:
+   Buffers: shared hit=54
+ Planning Time: 0.128 ms
+ Execution Time: 0.036 ms
+

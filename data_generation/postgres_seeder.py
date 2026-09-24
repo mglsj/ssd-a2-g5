@@ -1,32 +1,28 @@
 #!/usr/bin/env python3
-
+import argparse
 import os
+import random
 import sys
 import uuid
-import random
-import argparse
-from datetime import datetime, timedelta, date
+from collections import defaultdict
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
-from typing import List, Tuple, Optional
-from enum import Enum
 
 try:
     import psycopg2
-    from psycopg2.extras import execute_batch
+    from psycopg2.extras import execute_values
 except ImportError:
-    print("Error: psycopg2-binary not installed. Run: pip install psycopg2-binary")
+    print("Error: psycopg2-binary not installed. Run: uv sync (in data_generation/)")
     sys.exit(1)
 
 try:
     from faker import Faker
-    from pydantic import BaseModel, Field, field_validator, model_validator
-    from pydantic.types import UUID4
 except ImportError:
-    print("Error: faker or pydantic not installed. Run: pip install faker pydantic")
+    print("Error: faker not installed. Run: uv sync (in data_generation/)")
     sys.exit(1)
 
 
-fake = Faker()
+fake = Faker("en_IN")
 Faker.seed(42)
 random.seed(42)
 
@@ -36,325 +32,263 @@ PROPERTY_COUNT = 1000
 BOOKING_COUNT = 50000
 AUDIT_LOG_COUNT = 100000
 BATCH_SIZE = 5000
+HISTORY_DAYS = 365
+CENT = Decimal("0.01")
 
 
-class BookingStatus(str, Enum):
-    CONFIRMED = "CONFIRMED"
-    CHECKED_IN = "CHECKED_IN"
-    COMPLETED = "COMPLETED"
-
-
-class AuditAction(str, Enum):
-    DEBIT = "DEBIT"
-    CREDIT = "CREDIT"
-
-
-SF_NEIGHBORHOODS = [
-    "Union Square", "SoMa", "Mission District", "Fisherman's Wharf",
-    "Pacific Heights", "Inner Sunset", "Marina", "Castro",
-    "Nob Hill", "Financial District", "Hayes Valley", "Noe Valley",
-    "Presidio", "Richmond District", "Sunset District", "Dogpatch",
-    "Potrero Hill", "Bernal Heights", "Glen Park", "Excelsior"
+HYDERABAD_LOCALITIES = [
+    "Jubilee Hills",
+    "Banjara Hills",
+    "Madhapur",
+    "HITEC City",
+    "Gachibowli",
+    "Kondapur",
+    "Kukatpally",
+    "Begumpet",
+    "Ameerpet",
+    "Somajiguda",
+    "Punjagutta",
+    "Film Nagar",
+    "Manikonda",
+    "Raidurg",
+    "Tolichowki",
+    "Mehdipatnam",
+    "Khairatabad",
+    "Himayatnagar",
+    "Sainikpuri",
+    "Kokapet",
 ]
 
 PROPERTY_TYPES = [
-    "Luxury Loft", "Modern Apartment", "Charming Victorian", "Boutique Suite",
-    "Scenic Hilltop Haven", "Cozy Studio", "Waterfront Oasis", "Cultural Retreat",
-    "Penthouse", "Garden Cottage", "Tech-Friendly Condo", "Historic Brownstone"
+    "Luxury Villa",
+    "Modern Apartment",
+    "Heritage Home",
+    "Boutique Suite",
+    "Lakeview Flat",
+    "Cozy Studio",
+    "Serviced Apartment",
+    "Family Home",
+    "Penthouse",
+    "Garden Cottage",
+    "Tech Park Condo",
+    "Rooftop Studio",
 ]
 
-AMENITY_POOL = [
-    "High-Speed WiFi", "Air Conditioning", "Dedicated Workspace", "Smart TV",
-    "Elevator", "Coffee Bar", "Gigabit Fiber WiFi", "EV Charging Station",
-    "In-Unit Washer/Dryer", "Gym Access", "Rooftop Terrace", "Garden Patio",
-    "Espresso Machine", "Chef's Kitchen", "Radiant Floor Heating", "Vinyl Record Player",
-    "Bay Views", "Breakfast Included", "Bicycle Storage", "Fireplace",
-    "Panoramic City Views", "Hot Tub", "Private Garage", "Wine Cellar", "Sonos Sound System"
-]
+
+def money(low: float, high: float) -> Decimal:
+    return Decimal(str(random.uniform(low, high))).quantize(CENT)
 
 
-class Guest(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    name: str = Field(default_factory=lambda: fake.name())
-    wallet_balance: Decimal = Field(default_factory=lambda: Decimal(str(round(random.uniform(50.0, 5000.0), 2))))
-
-    @field_validator("wallet_balance", mode="before")
-    @classmethod
-    def round_balance(cls, v):
-        if isinstance(v, float):
-            return Decimal(str(round(v, 2)))
-        return v
-
-
-class Property(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    title: str
-    base_price: Decimal = Field(default_factory=lambda: Decimal(str(round(random.uniform(80.0, 800.0), 2))))
-    latitude: Decimal = Field(default_factory=lambda: Decimal(str(round(random.uniform(37.70, 37.80), 6))))
-    longitude: Decimal = Field(default_factory=lambda: Decimal(str(round(random.uniform(-122.50, -122.35), 6))))
-
-    @field_validator("base_price", mode="before")
-    @classmethod
-    def round_price(cls, v):
-        if isinstance(v, float):
-            return Decimal(str(round(v, 2)))
-        return v
-
-    @field_validator("latitude", "longitude", mode="before")
-    @classmethod
-    def round_coords(cls, v):
-        if isinstance(v, float):
-            return Decimal(str(round(v, 6)))
-        return v
-
-
-class Booking(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    guest_id: str
-    property_id: str
-    total_cost: Decimal
-    status: BookingStatus
-    created_at: datetime
-
-    @field_validator("total_cost", mode="before")
-    @classmethod
-    def round_cost(cls, v):
-        if isinstance(v, float):
-            return Decimal(str(round(v, 2)))
-        return v
-
-
-class WalletAuditLog(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    guest_id: str
-    amount_changed: Decimal
-    action_type: AuditAction
-    balance_after: Decimal
-    timestamp: datetime
-
-    @field_validator("amount_changed", "balance_after", mode="before")
-    @classmethod
-    def round_amount(cls, v):
-        if isinstance(v, float):
-            return Decimal(str(round(v, 2)))
-        return v
-
-
-def generate_properties(count: int) -> List[Property]:
+def generate_properties(count: int) -> list[tuple]:
     properties = []
-    for i in range(count):
-        neighborhood = random.choice(SF_NEIGHBORHOODS)
-        prop_type = random.choice(PROPERTY_TYPES)
-        title = f"{prop_type} in {neighborhood}"
-        
-        lat = round(random.uniform(37.70, 37.80), 6)
-        lon = round(random.uniform(-122.50, -122.35), 6)
-        base_price = round(random.uniform(80.0, 800.0), 2)
-        
-        properties.append(Property(
-            id=str(uuid.uuid4()),
-            title=title,
-            base_price=Decimal(str(base_price)),
-            latitude=Decimal(str(lat)),
-            longitude=Decimal(str(lon))
-        ))
-    return properties
-
-
-def generate_guests(count: int) -> List[Guest]:
-    return [Guest(
-        id=str(uuid.uuid4()),
-        name=fake.name(),
-        wallet_balance=Decimal(str(round(random.uniform(50.0, 5000.0), 2)))
-    ) for _ in range(count)]
-
-
-def generate_bookings_and_audits(
-    guests: List[Guest],
-    properties: List[Property],
-    booking_count: int,
-    audit_count: int
-) -> Tuple[List[Booking], List[WalletAuditLog]]:
-    now = datetime.utcnow()
-    statuses = list(BookingStatus)
-    status_weights = [0.3, 0.2, 0.5]
-    
-    bookings = []
-    audits = []
-    
-    for i in range(booking_count):
-        guest = random.choice(guests)
-        prop = random.choice(properties)
-        
-        nights = random.randint(1, 14)
-        base_price = float(prop.base_price)
-        total_cost = round(base_price * nights * random.uniform(0.9, 1.3), 2)
-        
-        status = random.choices(statuses, weights=status_weights, k=1)[0]
-        created_at = now - timedelta(days=random.randint(0, 365), hours=random.randint(0, 23), minutes=random.randint(0, 59))
-        
-        booking = Booking(
-            id=str(uuid.uuid4()),
-            guest_id=guest.id,
-            property_id=prop.id,
-            total_cost=Decimal(str(total_cost)),
-            status=status,
-            created_at=created_at
+    for _ in range(count):
+        title = f"{random.choice(PROPERTY_TYPES)} in {random.choice(HYDERABAD_LOCALITIES)}"
+        properties.append(
+            (
+                str(uuid.uuid4()),
+                title,
+                money(1500.0, 15000.0),
+                round(random.uniform(17.38, 17.50), 6),
+                round(random.uniform(78.33, 78.52), 6),
+            )
         )
-        bookings.append(booking)
-        
-        if len(audits) < audit_count:
-            action = random.choice(list(AuditAction))
-            amount = round(random.uniform(10.0, 500.0), 2)
-            balance_after = round(random.uniform(0.0, 5000.0), 2)
-            audit_time = created_at + timedelta(minutes=random.randint(1, 120))
-            
-            audits.append(WalletAuditLog(
-                id=str(uuid.uuid4()),
-                guest_id=guest.id,
-                amount_changed=Decimal(str(amount)),
-                action_type=action,
-                balance_after=Decimal(str(balance_after)),
-                timestamp=audit_time
-            ))
-    
-    while len(audits) < audit_count:
-        guest = random.choice(guests)
-        action = random.choice(list(AuditAction))
-        amount = round(random.uniform(10.0, 500.0), 2)
-        balance_after = round(random.uniform(0.0, 5000.0), 2)
-        audit_time = now - timedelta(days=random.randint(0, 365), hours=random.randint(0, 23), minutes=random.randint(0, 59))
-        
-        audits.append(WalletAuditLog(
-            id=str(uuid.uuid4()),
-            guest_id=guest.id,
-            amount_changed=Decimal(str(amount)),
-            action_type=action,
-            balance_after=Decimal(str(balance_after)),
-            timestamp=audit_time
-        ))
-    
-    return bookings, audits
-
-
-def get_connection(uri: str):
-    return psycopg2.connect(uri)
-
-
-def seed_guests(conn, guests: List[Guest]) -> List[str]:
-    cursor = conn.cursor()
-    print(f"Seeding {len(guests):,} guests...")
-    cursor.execute("TRUNCATE TABLE guests RESTART IDENTITY CASCADE;")
-    
-    guests_data = [(g.id, g.name, g.wallet_balance) for g in guests]
-    
-    execute_batch(
-        cursor,
-        "INSERT INTO guests (id, name, wallet_balance) VALUES (%s, %s, %s)",
-        guests_data,
-        page_size=BATCH_SIZE
-    )
-    conn.commit()
-    cursor.close()
-    print(f"  -> Inserted {len(guests):,} guests")
-    return [g.id for g in guests]
-
-
-def seed_properties(conn, properties: List[Property]) -> List[Property]:
-    cursor = conn.cursor()
-    print(f"Seeding {len(properties):,} properties...")
-    cursor.execute("TRUNCATE TABLE properties RESTART IDENTITY CASCADE;")
-    
-    properties_data = [
-        (p.id, p.title, p.base_price, p.latitude, p.longitude)
-        for p in properties
-    ]
-    
-    execute_batch(
-        cursor,
-        "INSERT INTO properties (id, title, base_price, latitude, longitude) VALUES (%s, %s, %s, %s, %s)",
-        properties_data,
-        page_size=BATCH_SIZE
-    )
-    conn.commit()
-    cursor.close()
-    print(f"  -> Inserted {len(properties):,} properties")
     return properties
 
 
-def seed_bookings_and_audit_logs(
-    conn,
-    bookings: List[Booking],
-    audits: List[WalletAuditLog]
+def generate_bookings(
+    guest_ids: list[str], properties: list[tuple], count: int, now: datetime
+) -> dict[str, list[dict]]:
+    """Return bookings grouped by guest, oldest first, with statuses assigned."""
+    by_guest = defaultdict(list)
+    for _ in range(count):
+        prop_id, _, base_price, _, _ = random.choice(properties)
+        nights = random.randint(1, 14)
+        by_guest[random.choice(guest_ids)].append(
+            {
+                "id": str(uuid.uuid4()),
+                "property_id": prop_id,
+                "nights": nights,
+                "total_cost": base_price * nights,
+                "created_at": now
+                - timedelta(seconds=random.randint(0, HISTORY_DAYS * 86400)),
+            }
+        )
+
+    for bookings in by_guest.values():
+        bookings.sort(key=lambda b: b["created_at"])
+        for booking in bookings[:-1]:
+            booking["status"] = random.choices(
+                ["COMPLETED", "CONFIRMED"], weights=[0.9, 0.1]
+            )[0]
+        # Only the latest booking can be CHECKED_IN.
+        bookings[-1]["status"] = random.choices(
+            ["CHECKED_IN", "CONFIRMED", "COMPLETED"], weights=[0.4, 0.3, 0.3]
+        )[0]
+    return by_guest
+
+
+def build_ledger(
+    guest_id: str, bookings: list[dict], now: datetime
+) -> tuple[list[tuple], Decimal]:
+    """Return (audit rows, final balance) for one guest's bookings."""
+    rows = []
+    balance = Decimal("0.00")
+
+    def add(action: str, amount: Decimal, at: datetime):
+        nonlocal balance
+        balance += amount if action == "CREDIT" else -amount
+        rows.append((str(uuid.uuid4()), guest_id, amount, action, balance, at))
+
+    first = bookings[0]["created_at"] if bookings else now
+    last_time = first - timedelta(days=random.randint(1, 30))
+    add("CREDIT", money(15000.0, 250000.0), last_time)
+
+    for booking in bookings:
+        cost, booked_at = booking["total_cost"], booking["created_at"]
+        if balance < cost:
+            gap = max((booked_at - last_time).total_seconds(), 2)
+            top_up_at = booked_at - timedelta(
+                seconds=random.uniform(1, min(gap - 1, 3 * 86400))
+            )
+            add("CREDIT", (cost - balance) + money(5000.0, 100000.0), top_up_at)
+        add("DEBIT", cost, booked_at)
+        last_time = booked_at
+    return rows, balance
+
+
+def add_extra_credits(
+    ledgers: dict[str, list[tuple]],
+    balances: dict[str, Decimal],
+    needed: int,
+    now: datetime,
 ):
-    cursor = conn.cursor()
-    print(f"Seeding {len(bookings):,} bookings and {len(audits):,} wallet audit logs...")
-    cursor.execute("TRUNCATE TABLE bookings, wallet_audit_logs RESTART IDENTITY CASCADE;")
-    
-    bookings_data = [
-        (b.id, b.guest_id, b.property_id, b.total_cost, b.status.value, b.created_at)
-        for b in bookings
-    ]
-    
-    execute_batch(
-        cursor,
-        "INSERT INTO bookings (id, guest_id, property_id, total_cost, status, created_at) VALUES (%s, %s, %s, %s, %s, %s)",
-        bookings_data,
-        page_size=BATCH_SIZE
+    """Append top-ups after each chosen guest's last row, so earlier balance_after values stay correct."""
+    guest_ids = list(ledgers)
+    for _ in range(needed):
+        guest_id = random.choice(guest_ids)
+        last_time = ledgers[guest_id][-1][5]
+        at = last_time + (now - last_time) * random.random()
+        amount = money(1000.0, 40000.0)
+        balances[guest_id] += amount
+        ledgers[guest_id].append(
+            (str(uuid.uuid4()), guest_id, amount, "CREDIT", balances[guest_id], at)
+        )
+
+
+def insert(cursor, table: str, columns: str, rows: list[tuple], batch_size: int):
+    execute_values(
+        cursor, f"INSERT INTO {table} ({columns}) VALUES %s", rows, page_size=batch_size
     )
-    conn.commit()
-    print(f"  -> Inserted {len(bookings):,} bookings")
-    
-    audit_data = [
-        (a.id, a.guest_id, a.amount_changed, a.action_type.value, a.balance_after, a.timestamp)
-        for a in audits
-    ]
-    
-    execute_batch(
-        cursor,
-        "INSERT INTO wallet_audit_logs (id, guest_id, amount_changed, action_type, balance_after, timestamp) VALUES (%s, %s, %s, %s, %s, %s)",
-        audit_data,
-        page_size=BATCH_SIZE
-    )
-    conn.commit()
-    print(f"  -> Inserted {len(audits):,} wallet audit logs")
-    cursor.close()
+    print(f"  -> Inserted {len(rows):,} {table}")
 
 
 def main():
     parser = argparse.ArgumentParser(description="StaySpot PostgreSQL Seeder")
-    parser.add_argument("--uri", default="postgresql://postgres:postgres@localhost:5432/stayspot", help="PostgreSQL URI")
-    parser.add_argument("--guests", type=int, default=GUEST_COUNT, help="Number of guests")
-    parser.add_argument("--properties", type=int, default=PROPERTY_COUNT, help="Number of properties")
-    parser.add_argument("--bookings", type=int, default=BOOKING_COUNT, help="Number of bookings")
-    parser.add_argument("--audits", type=int, default=AUDIT_LOG_COUNT, help="Number of audit log entries")
+    parser.add_argument(
+        "--uri",
+        default=os.environ.get(
+            "PG_URI", "postgresql://postgres:postgres@localhost:5432/stayspot"
+        ),
+        help="PostgreSQL URI (default: $PG_URI)",
+    )
+    parser.add_argument(
+        "--guests", type=int, default=GUEST_COUNT, help="Number of guests"
+    )
+    parser.add_argument(
+        "--properties", type=int, default=PROPERTY_COUNT, help="Number of properties"
+    )
+    parser.add_argument(
+        "--bookings", type=int, default=BOOKING_COUNT, help="Number of bookings"
+    )
+    parser.add_argument(
+        "--audits",
+        type=int,
+        default=AUDIT_LOG_COUNT,
+        help="Minimum number of audit log entries",
+    )
     parser.add_argument("--batch", type=int, default=BATCH_SIZE, help="Batch size")
     args = parser.parse_args()
-    
+
     print("=" * 60)
     print("StaySpot PostgreSQL Seeder")
     print("=" * 60)
     print(f"PostgreSQL: {args.uri}")
-    print(f"Guests: {args.guests:,}")
-    print(f"Properties: {args.properties:,}")
-    print(f"Bookings: {args.bookings:,}")
-    print(f"Audit Logs: {args.audits:,}")
+    print(
+        f"Guests: {args.guests:,}  Properties: {args.properties:,}  Bookings: {args.bookings:,}  Audit logs: >= {args.audits:,}"
+    )
     print()
-    
-    conn = get_connection(args.uri)
-    
+
+    now = datetime.now(timezone.utc)
+    guest_ids = [str(uuid.uuid4()) for _ in range(args.guests)]
+    properties = generate_properties(args.properties)
+    bookings_by_guest = generate_bookings(guest_ids, properties, args.bookings, now)
+
+    ledgers, balances = {}, {}
+    for guest_id in guest_ids:
+        ledgers[guest_id], balances[guest_id] = build_ledger(
+            guest_id, bookings_by_guest.get(guest_id, []), now
+        )
+    shortfall = args.audits - sum(len(rows) for rows in ledgers.values())
+    if shortfall > 0:
+        add_extra_credits(ledgers, balances, shortfall, now)
+
+    guests = [(gid, fake.name(), balances[gid]) for gid in guest_ids]
+    bookings = [
+        (
+            b["id"],
+            gid,
+            b["property_id"],
+            b["nights"],
+            b["total_cost"],
+            b["status"],
+            b["created_at"],
+        )
+        for gid, rows in bookings_by_guest.items()
+        for b in rows
+    ]
+    audits = [row for rows in ledgers.values() for row in rows]
+
+    conn = psycopg2.connect(args.uri)
     try:
-        guests = generate_guests(args.guests)
-        properties = generate_properties(args.properties)
-        bookings, audits = generate_bookings_and_audits(guests, properties, args.bookings, args.audits)
-        
-        seed_guests(conn, guests)
-        seed_properties(conn, properties)
-        seed_bookings_and_audit_logs(conn, bookings, audits)
-        
-        print("\n✓ PostgreSQL seeding completed successfully!")
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "TRUNCATE TABLE wallet_audit_logs, bookings, properties, guests CASCADE"
+            )
+            insert(cursor, "guests", "id, name, wallet_balance", guests, args.batch)
+            insert(
+                cursor,
+                "properties",
+                "id, title, base_price, latitude, longitude",
+                properties,
+                args.batch,
+            )
+            insert(
+                cursor,
+                "bookings",
+                "id, guest_id, property_id, nights, total_cost, status, created_at",
+                bookings,
+                args.batch,
+            )
+            insert(
+                cursor,
+                "wallet_audit_logs",
+                "id, guest_id, amount_changed, action_type, balance_after, timestamp",
+                audits,
+                args.batch,
+            )
+            cursor.execute("SELECT refresh_mv_property_summary()")
+            print("  -> Refreshed mv_property_summary")
+        conn.commit()
+
+        # VACUUM cannot run inside a transaction. It sets the visibility map so
+        # the planner can use index-only scans on the new rows.
+        conn.autocommit = True
+        with conn.cursor() as cursor:
+            cursor.execute("VACUUM ANALYZE")
+        print("  -> VACUUM ANALYZE done")
+        print("\nPostgreSQL seeding completed successfully.")
     except Exception as e:
-        print(f"\n✗ Error: {e}")
+        print(f"\nError: {e}")
         conn.rollback()
         raise
     finally:

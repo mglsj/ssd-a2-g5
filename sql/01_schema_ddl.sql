@@ -1,32 +1,33 @@
-
-CREATE TABLE guests (
+CREATE TABLE IF NOT EXISTS guests (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(255) NOT NULL,
-    wallet_balance DECIMAL(10,2) NOT NULL CHECK (wallet_balance >= 0.00)
+    wallet_balance DECIMAL(10,2) NOT NULL DEFAULT 0.00
+        CONSTRAINT chk_guests_wallet_nonnegative CHECK (wallet_balance >= 0.00)
 );
 
-CREATE TABLE wallet_audit_logs (
+CREATE TABLE IF NOT EXISTS wallet_audit_logs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     guest_id UUID NOT NULL REFERENCES guests(id),
-    amount_changed DECIMAL(10,2) NOT NULL,
+    amount_changed DECIMAL(10,2) NOT NULL CHECK (amount_changed > 0.00),
     action_type VARCHAR(10) NOT NULL CHECK (action_type IN ('DEBIT', 'CREDIT')),
-    balance_after DECIMAL(10,2) NOT NULL,
-    timestamp TIMESTAMPTZ DEFAULT NOW()
+    balance_after DECIMAL(10,2) NOT NULL CHECK (balance_after >= 0.00),
+    timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE properties (
+CREATE TABLE IF NOT EXISTS properties (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     title VARCHAR(255) NOT NULL,
-    base_price DECIMAL(10,2) NOT NULL,
-    latitude FLOAT NOT NULL,
-    longitude FLOAT NOT NULL
+    base_price DECIMAL(10,2) NOT NULL CHECK (base_price > 0.00),
+    latitude FLOAT NOT NULL CHECK (latitude BETWEEN -90 AND 90),
+    longitude FLOAT NOT NULL CHECK (longitude BETWEEN -180 AND 180)
 );
 
-CREATE TABLE bookings (
+CREATE TABLE IF NOT EXISTS bookings (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     guest_id UUID NOT NULL REFERENCES guests(id),
     property_id UUID NOT NULL REFERENCES properties(id),
-    total_cost DECIMAL(10,2) NOT NULL,
-    status VARCHAR(20) NOT NULL CHECK (status IN ('CONFIRMED', 'CHECKED IN', 'COMPLETED')),
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    nights INT NOT NULL CHECK (nights BETWEEN 1 AND 365),
+    total_cost DECIMAL(10,2) NOT NULL CHECK (total_cost > 0.00),
+    status VARCHAR(20) NOT NULL CHECK (status IN ('CONFIRMED', 'CHECKED_IN', 'COMPLETED')),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
