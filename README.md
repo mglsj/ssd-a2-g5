@@ -1,7 +1,21 @@
 # StaySpot
 
 Vacation rental database (PostgreSQL + MongoDB) from Assignment 1, with a web front end for Assignment 2.
-What we changed in the inherited code, and why, is in [docs/handover_note.md](docs/handover_note.md).
+
+## Repository layout
+
+```
+README.md
+docs/               handover_note.md, api_endpoints.md, design/ (wireframes, users),
+                    relational_erd.png, mongo_schema_map.json, README_a1.md
+sql/                Assignment 1 schema, indexes, triggers, procedures, views, Workflow 2
+mongo/              Assignment 1 collections and indexes, Workflows 3 and 4
+data_generation/    Seeders (uv project)
+performance/        EXPLAIN ANALYZE and explain("executionStats") output
+scripts/            setup_db.sh, regenerate_performance.sh
+api/                Server layer
+web/                Front end
+```
 
 ## Setup
 
@@ -17,10 +31,6 @@ Seeded search pins expire after 2 hours. To keep adding new ones for the map:
 ```bash
 uv run --project data_generation python data_generation/mongo_seeder.py --sessions 0 --live
 ```
-
-## Seed data
-
-The data is set in Hyderabad, with amounts in rupees. 209 of the 1,000 properties are real listings from trivago searches around IIIT Hyderabad (names, coordinates, nightly prices, amenities and ratings). The rest are synthetic homes near 32 Hyderabad localities, weighted towards Gachibowli. Search pins cluster around the same localities.
 
 ## Workflows
 
