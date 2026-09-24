@@ -80,24 +80,10 @@ function buildReviewAnalyticsPipeline(filter = {}) {
                 $let: {
                   vars: {
                     count: {
-                      $ifNull: [
-                        {
-                          $first: {
-                            $map: {
-                              input: {
-                                $filter: {
-                                  input: "$rating_distributions",
-                                  as: "d",
-                                  cond: { $eq: ["$$d.rating", "$$star"] },
-                                },
-                              },
-                              as: "d",
-                              in: "$$d.count",
-                            },
-                          },
-                        },
-                        0,
-                      ],
+                      $let: {
+                        vars: { i: { $indexOfArray: ["$rating_distributions.rating", "$$star"] } },
+                        in: { $cond: [{ $gte: ["$$i", 0] }, { $arrayElemAt: ["$rating_distributions.count", "$$i"] }, 0] },
+                      },
                     },
                   },
                   in: {
@@ -124,7 +110,7 @@ function buildReviewAnalyticsPipeline(filter = {}) {
 }
 
 function runWorkflow4() {
-  const targetDb = typeof db !== "undefined" ? db.getSiblingDB("stayspot") : new Mongo().getDB("stayspot");
+  const targetDb = db.getSiblingDB("stayspot");
 
   const globalPipeline = buildReviewAnalyticsPipeline();
   const sample = targetDb.PropertyReviews.findOne({}, { property_id: 1 });

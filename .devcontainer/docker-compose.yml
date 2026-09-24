@@ -4,11 +4,6 @@ services:
     volumes:
       - ..:/workspace:cached
     environment:
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: stayspot
       PG_URI: postgresql://postgres:postgres@postgres:5432/stayspot
       MONGO_URI: mongodb://mongo:27017/stayspot
       MONGO_DB: stayspot

@@ -32,42 +32,38 @@ We also found problems by reading the code:
 
 ## What we changed and why
 
-### Schema
+### Schema and procedures
 
-- The status CHECK now uses `CHECKED_IN`, matching the index and the seeder.
-- `bookings` has a `nights` column. The materialized view sums it, and the booking procedure prices a stay as `base_price * nights`.
+- The status CHECK uses `CHECKED_IN`, matching the index and the seeder.
+- `bookings` has a `nights` column. The booking procedure prices a stay as `base_price * nights`, and the materialized view sums real nights.
 - New CHECK constraints cover prices, costs, coordinates and audit amounts, and every timestamp is NOT NULL.
-- A trigger rejects UPDATE and DELETE on `wallet_audit_logs`.
-- New indexes support the browse and audit screens, and two partial covering indexes serve the revenue queries.
+- `wallet_audit_logs` is append-only: a trigger rejects UPDATE and DELETE. The audit trigger stamps rows with `clock_timestamp()`, so two wallet changes in one transaction keep their order.
+- `sp_execute_booking` raises an error that names the problem (insufficient balance, unknown guest or property, invalid nights), so the front end can show it. It returns the booking id, the balances before and after, and the audit row id.
+- New procedures: `sp_update_booking_status` (CONFIRMED to CHECKED_IN to COMPLETED; a second check-in fails on `idx_active_stay`, which is how the UI demonstrates the partial index) and `sp_top_up_wallet`.
+- Workflow 2 is two SQL functions: a 7-day moving average per property over a gap-free daily grid, and a DENSE_RANK of properties. Two partial covering indexes remove the sequential scan.
+- `refresh_mv_property_summary()` records its time in `mv_refresh_log` for the "last refreshed" label.
 - Every SQL file can be re-run on an existing database.
 
-### Procedures and analytics
+### Mongo
 
-- `sp_execute_booking` raises an error that names the problem, so the front end can show it. It rejects bad input, and it returns the booking id, the balances before and after, and the audit row id.
-- `sp_update_booking_status` moves a booking from CONFIRMED to CHECKED_IN to COMPLETED. A second check-in fails on `idx_active_stay`, which is how the UI demonstrates the partial index.
-- `sp_top_up_wallet` adds money and writes a CREDIT row through the trigger.
-- Workflow 2 is now two SQL functions. One returns the 7-day moving average per property over a gap-free daily grid. The other ranks properties with DENSE_RANK.
-- `refresh_mv_property_summary()` records its time in `mv_refresh_log` and returns it, for the "last refreshed" label.
-
-### Mongo pipelines
-
-- Workflow 3 takes any center point. Its default is Jubilee Hills in Hyderabad.
-- Workflow 4 always returns all five rating buckets, with 0 for empty ones.
-- Each script builds its pipelines in functions. mongosh runs the workflow, and `require()` from Node returns only the builders, so the API runs the same pipelines.
+- `SearchSessions` has a compound `{location: "2dsphere", created_at: 1}` index instead of the single-field one. It is still a 2dsphere index on `location`, and the 2-hour recency filter now runs inside the index scan.
+- Workflow 3 takes any center point and defaults to IIIT Hyderabad. Workflow 4 always returns all five rating buckets.
+- Each workflow script builds its pipelines in functions. mongosh runs the workflow, and `require()` from Node returns only the builders, so the API runs the same pipelines.
 - With `--eval "var EXPLAIN = true"`, a script prints only its explain output as JSON. The scripts no longer write files.
+- `01_collections_and_indexes.js` defines each validator and index once and applies strict validation on create and on update. `PropertyAmenities` accepts the `star_rating` and `guest_rating` of real listings.
 
 ### Seed data
 
-- All data is Indian and set in Hyderabad. Guest names come from Faker's `en_IN` locale, amounts are in rupees, and properties and search pins sit in Hyderabad localities.
-- The Postgres seeder builds a ledger per guest that ends at their wallet balance, and gives each guest at most one CHECKED_IN booking. It refreshes the materialized view and runs `VACUUM ANALYZE` at the end.
-- The Mongo seeder reads PostgreSQL first. Every review belongs to a real COMPLETED booking and uses 1 to 5 stars, and every amenities document carries its property title. Search pins use real guest ids.
-- `--live` keeps inserting fresh search pins, so the map has data after the 2-hour TTL.
-- The seeders use builtin type hints (`list`, `dict`, `X | None`) instead of the `typing` module.
+- All data is set in Hyderabad, with Indian names and rupee amounts. 209 properties are real listings from trivago searches around IIIT Hyderabad, with their names, coordinates, prices, amenities and ratings. Synthetic homes fill the rest near 32 weighted localities.
+- The Postgres seeder builds a ledger per guest that ends at their wallet balance, gives each guest at most one CHECKED_IN booking, refreshes the materialized view and runs `VACUUM ANALYZE`.
+- Every review belongs to a real COMPLETED booking and uses 1 to 5 stars. Search pins use real guest ids, and `--live` keeps inserting fresh pins after the 2-hour TTL.
+- 45% of search pins fall within 5 km of IIIT. With the compound index, Workflow 3 went from about 4 s to under 2 s.
+- The Mongo seeder builds plain dictionaries, so `pydantic` is no longer a dependency. Both seeders use builtin type hints instead of `typing`.
 
-### Tooling and docs
+### Tooling
 
-- A dev container runs PostgreSQL, MongoDB and a devenv shell with uv. `data_generation/` is a uv project.
-- `scripts/setup_db.sh` resets and seeds both databases in about 40 seconds. `scripts/explain_postgres.sql` regenerates the Postgres performance file.
+- A dev container runs PostgreSQL, MongoDB and a devenv shell with uv. `data_generation/` is a uv project, and `requirements.txt` is exported from `uv.lock`.
+- `scripts/setup_db.sh` resets and seeds both databases. `scripts/regenerate_performance.sh` rewrites both performance files.
 - We regenerated the performance files, the ERD and the Mongo schema map.
 
 ## Suggestions for the original authors

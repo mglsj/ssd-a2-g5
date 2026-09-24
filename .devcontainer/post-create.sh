@@ -14,12 +14,6 @@ fi
 if [ -f "data_generation/pyproject.toml" ]; then
   (
     cd data_generation
-
-    if [ -x .venv/bin/python ] && ! .venv/bin/python -c "import uuid" >/dev/null 2>&1; then
-      echo "Discarding unusable data_generation/.venv (stale or built elsewhere)."
-      rm -rf .venv
-    fi
-
     uv sync
 
     uv run python -c "import uuid, psycopg2, pymongo, faker" \

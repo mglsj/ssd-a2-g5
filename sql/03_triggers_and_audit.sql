@@ -1,20 +1,14 @@
 CREATE OR REPLACE FUNCTION log_guest_wallet_update()
 RETURNS TRIGGER AS $$
-DECLARE
-    v_action_type VARCHAR(10);
-    v_amount_changed DECIMAL(10,2);
 BEGIN
-    v_amount_changed := NEW.wallet_balance - OLD.wallet_balance;
-    
-    IF v_amount_changed < 0 THEN
-        v_action_type := 'DEBIT';
-    ELSE
-        v_action_type := 'CREDIT';
-    END IF;
-    
-    INSERT INTO wallet_audit_logs(guest_id, amount_changed, action_type, balance_after, timestamp)
-    VALUES (NEW.id, ABS(v_amount_changed), v_action_type, NEW.wallet_balance, NOW());
-    
+    INSERT INTO wallet_audit_logs (guest_id, amount_changed, action_type, balance_after, timestamp)
+    VALUES (
+        NEW.id,
+        ABS(NEW.wallet_balance - OLD.wallet_balance),
+        CASE WHEN NEW.wallet_balance < OLD.wallet_balance THEN 'DEBIT' ELSE 'CREDIT' END,
+        NEW.wallet_balance,
+        clock_timestamp()
+    );
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;

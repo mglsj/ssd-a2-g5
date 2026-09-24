@@ -1,3 +1,15 @@
+function geoNearStage({ lng, lat, radiusMeters, sinceMinutes, now }) {
+  return {
+    $geoNear: {
+      near: { type: "Point", coordinates: [lng, lat] },
+      distanceField: "distance_meters",
+      maxDistance: radiusMeters,
+      spherical: true,
+      query: { created_at: { $gte: new Date(now.getTime() - sinceMinutes * 60 * 1000) } },
+    },
+  };
+}
+
 function buildHotspotPipeline({
   lng,
   lat,
@@ -6,22 +18,13 @@ function buildHotspotPipeline({
   sortBy = "volume",
   now = new Date(),
 }) {
-  const since = new Date(now.getTime() - sinceMinutes * 60 * 1000);
   const sort =
     sortBy === "distance"
       ? { avg_distance_meters: 1, search_volume: -1 }
       : { search_volume: -1, avg_distance_meters: 1 };
 
   return [
-    {
-      $geoNear: {
-        near: { type: "Point", coordinates: [lng, lat] },
-        distanceField: "distance_meters",
-        maxDistance: radiusMeters,
-        spherical: true,
-        query: { created_at: { $gte: since } },
-      },
-    },
+    geoNearStage({ lng, lat, radiusMeters, sinceMinutes, now }),
     {
       $group: {
         _id: {
@@ -71,22 +74,13 @@ function buildHotspotPipeline({
 }
 
 function buildRadialDensityPipeline({ lng, lat, radiusMeters = 5000, sinceMinutes = 120, now = new Date() }) {
-  const since = new Date(now.getTime() - sinceMinutes * 60 * 1000);
   const boundaries = [];
   for (let m = 0; m <= radiusMeters; m += 1000) boundaries.push(m);
   if (boundaries[boundaries.length - 1] < radiusMeters) boundaries.push(radiusMeters);
   boundaries[boundaries.length - 1] = radiusMeters + 1;
 
   return [
-    {
-      $geoNear: {
-        near: { type: "Point", coordinates: [lng, lat] },
-        distanceField: "distance_meters",
-        maxDistance: radiusMeters,
-        spherical: true,
-        query: { created_at: { $gte: since } },
-      },
-    },
+    geoNearStage({ lng, lat, radiusMeters, sinceMinutes, now }),
     {
       $bucket: {
         groupBy: "$distance_meters",
@@ -112,11 +106,11 @@ function buildRadialDensityPipeline({ lng, lat, radiusMeters = 5000, sinceMinute
 }
 
 function runWorkflow3() {
-  const targetDb = typeof db !== "undefined" ? db.getSiblingDB("stayspot") : new Mongo().getDB("stayspot");
+  const targetDb = db.getSiblingDB("stayspot");
 
   const params = {
-    lng: parseFloat(process.env.HOTSPOT_LNG || "78.4000"),
-    lat: parseFloat(process.env.HOTSPOT_LAT || "17.4400"),
+    lng: parseFloat(process.env.HOTSPOT_LNG || "78.3489"),
+    lat: parseFloat(process.env.HOTSPOT_LAT || "17.4455"),
     radiusMeters: 5000,
     sinceMinutes: 120,
   };

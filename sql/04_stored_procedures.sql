@@ -55,9 +55,7 @@ BEGIN
     SELECT w.id INTO audit_log_id
     FROM wallet_audit_logs w
     WHERE w.guest_id = p_guest_id
-      AND w.timestamp = NOW()
-      AND w.action_type = 'DEBIT'
-      AND w.balance_after = sp_execute_booking.balance_after
+    ORDER BY w.timestamp DESC
     LIMIT 1;
 END;
 $$;
@@ -133,9 +131,7 @@ BEGIN
     SELECT w.id INTO audit_log_id
     FROM wallet_audit_logs w
     WHERE w.guest_id = p_guest_id
-      AND w.timestamp = NOW()
-      AND w.action_type = 'CREDIT'
-      AND w.balance_after = sp_top_up_wallet.balance_after
+    ORDER BY w.timestamp DESC
     LIMIT 1;
 END;
 $$;

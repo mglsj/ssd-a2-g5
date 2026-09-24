@@ -24,7 +24,7 @@
       "document_count_seeded": 1000,
       "seeding_note": "Populated by data_generation/mongo_seeder.py --seed-all. One document per PostgreSQL property, with property_title copied from properties.title, random amenities, house_rules and accessibility_features without duplicates, and optional safety_features/host_guidelines.",
       "validation": {
-        "validationLevel": "strict on create / moderate on collMod (see ensureCollectionWithValidator in 01_collections_and_indexes.js)",
+        "validationLevel": "strict (01_collections_and_indexes.js creates or collMods each collection with the same validator)",
         "validationAction": "error",
         "required": [
           "property_id",
@@ -103,7 +103,7 @@
       "document_count_seeded": "5000 (up to 5 per property x 1000 properties, configurable via --reviews-per-property)",
       "seeding_note": "Populated by data_generation/mongo_seeder.py --seed-all. Each review belongs to a COMPLETED booking loaded from PostgreSQL, so property_id, guest_id and booking_id point at real rows, and created_at falls 1 to 14 days after checkout. Ratings cover 1 to 5 stars (about 5/7/15/33/40 percent) and review_text matches the rating.",
       "validation": {
-        "validationLevel": "strict on create / moderate on collMod",
+        "validationLevel": "strict",
         "validationAction": "error",
         "required": [
           "property_id",
@@ -209,10 +209,10 @@
     "SearchSessions": {
       "purpose": "Ephemeral geospatial telemetry: every map pin-drop a guest makes while searching, auto-expired after 2 hours via TTL index.",
       "document_count_seeded": 500000,
-      "document_count_observed_at_query_time": "454,315 of the 500,000 seeded pins fall within 5 km of the default center in the last 2 hours (explain run right after seeding). The TTL index removes every seeded pin 2 hours after it was created, so run mongo_seeder.py --live to keep fresh pins coming.",
-      "seeding_note": "data_generation/mongo_seeder.py inserts 500,000 pins by default, weighted across 12 in-range and 4 out-of-range Hyderabad hotspots around Jubilee Hills (17.44, 78.40), with created_at in the last 115 minutes. --live keeps inserting pins with created_at = now.",
+      "document_count_observed_at_query_time": "218,777 of the 500,000 seeded pins fall within 5 km of the default center (IIIT Hyderabad, 17.4455, 78.3489) in the last 2 hours (explain run right after seeding). The TTL index removes every seeded pin 2 hours after it was created, so run mongo_seeder.py --live to keep fresh pins coming.",
+      "seeding_note": "data_generation/mongo_seeder.py inserts 500,000 pins by default, weighted across 32 Hyderabad localities (the LOCALITIES list in postgres_seeder.py). Gachibowli has the largest weight, and 45% of the weight lies within 5 km of IIIT Hyderabad, so Workflow 3 stays fast, with created_at in the last 115 minutes. --live keeps inserting pins with created_at = now.",
       "validation": {
-        "validationLevel": "strict on create / moderate on collMod",
+        "validationLevel": "strict",
         "validationAction": "error",
         "required": [
           "session_id",
@@ -276,11 +276,12 @@
       },
       "indexes": [
         {
-          "name": "idx_searchsessions_location_2dsphere",
+          "name": "idx_searchsessions_location_created_2dsphere",
           "key": {
-            "location": "2dsphere"
+            "location": "2dsphere",
+            "created_at": 1
           },
-          "purpose": "Backs $geoNear / $near queries (Workflow 3 hotspot clustering)",
+          "purpose": "Backs $geoNear (Workflow 3). The created_at key lets the recency filter run inside the index scan",
           "confirmed_used_by": "GEO_NEAR_2DSPHERE stage in the Workflow 3 winningPlan (entry 0 of performance/mongo_execution_stats.json)"
         },
         {
@@ -289,7 +290,7 @@
             "created_at": 1
           },
           "expireAfterSeconds": 7200,
-          "purpose": "TTL — background thread deletes documents ~2 hours after created_at"
+          "purpose": "TTL: a background thread deletes documents about 2 hours after created_at"
         },
         {
           "name": "idx_searchsessions_user_time",
@@ -301,7 +302,7 @@
         }
       ],
       "observed_query_behavior": {
-        "workflow3_geonear": "$geoNear plans as FETCH -> GEO_NEAR_2DSPHERE using idx_searchsessions_location_2dsphere for the spatial bound, then applies the created_at >= cutoff filter as a post-fetch FETCH-stage filter (not index-covered). In the captured run the plan examined 920,059 documents and returned 454,315 within the 5 km / 2 h window, taking about 4 s under explain. A compound index such as {location:\"2dsphere\", created_at:1} is not supported by MongoDB for 2dsphere + range together in a single scan the way it is here, so this filter cost is expected, not a misconfiguration."
+        "workflow3_geonear": "$geoNear plans as GEO_NEAR_2DSPHERE over idx_searchsessions_location_created_2dsphere. The created_at key of the compound index applies the 2-hour recency filter during the index scan, so the plan fetches only documents in the window. In the captured run it examined 247,410 keys and 240,288 documents and returned 218,777, taking about 1.7 s under explain (the single-field index needed about 4 s and fetched twice as many documents)."
       }
     }
   },
