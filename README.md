@@ -2,6 +2,9 @@
 
 Vacation rental database (PostgreSQL + MongoDB) from Assignment 1, with a web front end for Assignment 2.
 
+Assignment 1 Repository: https://github.com/rashhmi1/stayspot-database-a1
+Assignment 2 Repository: https://github.com/mglsj/ssd-a2-g5 
+
 ## Repository layout
 
 ```

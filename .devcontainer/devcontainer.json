@@ -5,9 +5,7 @@
   "workspaceFolder": "/workspace",
   "forwardPorts": [
     3000,
-    5000,
-    5432,
-    27017
+    5000
   ],
   "portsAttributes": {
     "5432": {
@@ -28,7 +26,8 @@
         "ms-ossdata.vscode-pgsql",
         "bierner.github-markdown-preview",
         "inferrinizzard.prettier-sql-vscode",
-        "typescriptteam.native-preview"
+        "typescriptteam.native-preview",
+        "tamasfe.even-better-toml"
       ]
     }
   },

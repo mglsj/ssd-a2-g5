@@ -1,2 +1,3 @@
+* text=auto eol=lf
 # Scripts run inside the Linux dev container; keep LF even with core.autocrlf=true
 *.sh text eol=lf

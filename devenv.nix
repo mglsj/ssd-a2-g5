@@ -5,6 +5,8 @@
   ...
 }:
 {
+  claude.code.enable = true;
+
   packages = [
     pkgs.git
     pkgs.mongosh
@@ -26,5 +28,11 @@
       enable = true;
       sync.enable = true;
     };
+  };
+
+  languages.javascript = {
+    enable = true;
+    directory = "./web";
+    bun.enable = true;
   };
 }
