@@ -33,6 +33,24 @@ export function pagination(query) {
   };
 }
 
+export async function readJson(c) {
+  try {
+    const body = await c.req.json();
+
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return null;
+    }
+
+    return body;
+  } catch {
+    return null;
+  }
+}
+
+export function escapeLike(value) {
+  return value.replace(/[\\%_]/g, "\\$&");
+}
+
 export function parseDate(value) {
   if (!value) return null;
 

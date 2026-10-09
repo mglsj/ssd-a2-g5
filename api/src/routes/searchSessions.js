@@ -1,13 +1,17 @@
 import { Hono } from "hono";
 import { searchSessions } from "../db/mongo.js";
 import { badRequest, errorResponse } from "../utils/errors.js";
-import { newSessionId } from "../utils/validation.js";
+import { newSessionId, readJson } from "../utils/validation.js";
 
 const app = new Hono();
 
 app.post("/", async (c) => {
   try {
-    const body = await c.req.json();
+    const body = await readJson(c);
+
+    if (!body) {
+      return badRequest(c, "Invalid JSON body");
+    }
 
     const lat = Number(body.lat);
     const lng = Number(body.lng);

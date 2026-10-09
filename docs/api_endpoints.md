@@ -34,7 +34,7 @@ Every error has the same shape:
 
 | Source | Condition | HTTP | `code` |
 |---|---|---|---|
-| API validation | Missing or malformed field, bad UUID, bad date | 400 | `BAD_REQUEST` |
+| API validation | Missing or malformed field, bad UUID, bad date, unreadable JSON body | 400 | `BAD_REQUEST` |
 | PostgreSQL `P0002` (`no_data_found`) | Guest, property or booking does not exist | 404 | `NOT_FOUND` |
 | PostgreSQL `22023` (`invalid_parameter_value`) from `sp_execute_booking` or `sp_top_up_wallet` | Nights outside 1 to 365, top-up amount not positive | 422 | `INVALID_INPUT` |
 | PostgreSQL `22023` from `sp_update_booking_status` | Transition other than CONFIRMED to CHECKED_IN to COMPLETED | 409 | `INVALID_TRANSITION` |
@@ -129,9 +129,9 @@ The wallet audit trail. Uses `idx_wallet_audit_logs_guest_time`.
 
 | Query | Notes |
 |---|---|
-| `q` | Case-insensitive title search |
-| `min_price`, `max_price` | Filter on `base_price` |
-| `sort` | `title` (default), `price_asc`, `price_desc`, `revenue` (from `mv_property_summary`) |
+| `q` | Case-insensitive title search. `%` and `_` match literally |
+| `min_price`, `max_price` | Filter on `base_price`. Must be non-negative numbers, and `min_price` cannot exceed `max_price` (`400` otherwise) |
+| `sort` | `title` (default), `price_asc`, `price_desc`, `revenue` (from `mv_property_summary`). Ties break on `id`, so pages stay stable |
 | `page`, `limit` | Pagination |
 
 Item: `{ "id", "title", "base_price", "latitude", "longitude" }`
