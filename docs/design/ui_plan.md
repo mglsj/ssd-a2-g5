@@ -23,17 +23,18 @@ Use these skills while building: `svelte-code-writer` (run its autofixer on ever
   - DESIGN.md tokens in `layout.css`, and `cn` and `tv` in `#lib/utils.js` with the merge config.
   - 12 shadcn components in `src/lib/components/shadcn`: badge, button, card, dialog, input, label, select, separator, skeleton, sonner, table, tabs.
   - `ModeWatcher` and `Toaster` are mounted in `+layout.svelte`.
-- **Not yet done**:
-  - Every product route.
-  - The production build, because `svelte-adapter-bun@1.0.1` does not support SvelteKit 3 (phase 0 replaces it).
+- **Adapter**: `@sveltejs/adapter-bun@1` (the official SvelteKit 3 adapter) is configured in `vite.config.ts`. It builds a standalone Bun server into `web/build`. The build only works under Bun's runtime, so `bun run --bun build` passes while plain `bun run build` fails with "adapter-bun requires running the SvelteKit build with Bun" (phase 0 fixes the script).
+- **Not yet done**: every product route.
+- **Unused on purpose**: the API can serve a static build from `WEB_DIST`. With the Bun adapter the web app runs as its own server, so leave that feature alone and do not point `WEB_DIST` at `web/build`.
 
 ## Decisions
 
 | Decision | Choice | Why |
 |---|---|---|
-| Rendering | SPA: `export const ssr = false` in `src/routes/+layout.ts`, built with `@sveltejs/adapter-static@4` and `fallback: "index.html"` | There is no auth and every page reads live API data, so SSR adds nothing. adapter-static supports SvelteKit 3. The API already serves a static build with an `index.html` fallback, so one process runs everything. |
-| Build output | `pages: "dist"`, `assets: "dist"` | The API serves `web/dist` by default (`WEB_DIST`). `dist/` is already in the root `.gitignore`. |
-| Dev wiring | Vite `server.proxy: { "/api": "http://localhost:3000" }` | Same origin in dev and production, so the client base URL is always `window.location.origin` and CORS never matters. |
+| Server | `@sveltejs/adapter-bun`, already set up. Build with `bun --bun vite build` and run with `bun ./build`. | The web app is its own Bun server, next to the API. |
+| Rendering | Client-side: `export const ssr = false` in `src/routes/+layout.ts` | There is no auth, every page reads live API data, and TanStack Query, MapLibre and the charts all run in the browser. Turning SSR off avoids hydration work for no gain. The Bun server still serves the app shell and assets and runs the `/api` proxy. |
+| Talking to the API | A `handle` hook in `src/hooks.server.ts` forwards every `/api/*` request to `API_URL` (default `http://localhost:3000`), passing the method, headers and body through, and returns the API's response as is | One mechanism for dev and production, since `vite dev` runs server hooks too. The browser only ever talks to the web origin, so the client base URL is `window.location.origin` and CORS never matters. No Vite proxy is needed. |
+| Ports | API on 3000 (dev container, published). Web dev on 5173 (`.claude/launch.json`). Built web server on 4173 (`PORT=4173 bun ./build`) | The built Bun server defaults to port 3000, which would clash with the API. |
 | API calls | `createClient` from `../../api/src/client.ts`, wrapped once in `src/lib/api/` | Types come straight from the API's Zod schemas. Add `hono@^4.13.13` to `web` devDependencies so the build does not depend on `api/node_modules`. |
 | Server state | `@tanstack/svelte-query@6` | Caching, loading and error states, retries and `refetchInterval` polling for the map, all with little code. |
 | Map | `maplibre-gl@6` with `svelte-maplibre-gl@2`, basemap `https://tiles.openfreemap.org/styles/positron` | MapLibre is what the API's GeoJSON was shaped for. OpenFreeMap needs no API key. Positron is a quiet grey style that fits the warm canvas. |
@@ -45,6 +46,7 @@ Use these skills while building: `svelte-code-writer` (run its autofixer on ever
 
 ```
 web/src/
+  hooks.server.ts             /api/* proxy to API_URL
   routes/
     +layout.ts                ssr = false
     +layout.svelte            QueryClientProvider, ModeWatcher, Toaster, AppShell
@@ -102,16 +104,28 @@ web/src/
 
 ## Phase 0: tooling
 
-1. Swap the adapter: remove `svelte-adapter-bun` and `@sveltejs/adapter-auto`, add `@sveltejs/adapter-static@^4`, and configure `pages`/`assets` as `dist` with `fallback: "index.html"` in `vite.config.ts`.
+1. **Scripts** in `web/package.json`:
+   - `"build": "bun --bun vite build"`, so `bun run build` works without remembering `--bun`.
+   - `"start": "bun ./build"`.
+   - Leave `dev` as `vite dev`.
+
+   The comment block above `adapter: adapter()` in `vite.config.ts` still describes adapter-auto, so trim it to one line.
 2. Add `src/routes/+layout.ts` with `export const ssr = false;`.
-3. Add the Vite proxy for `/api`.
-4. Add dependencies: `hono`, `@tanstack/svelte-query`, `maplibre-gl`, `svelte-maplibre-gl`.
-5. Add shadcn components with `bunx --bun shadcn-svelte@latest add <names> --yes` from `web/`: `alert empty spinner field input-group pagination sheet toggle-group popover command dropdown-menu tooltip scroll-area chart avatar`. Read each added file. They pick up the theme automatically. If one uses `tv`, change its import to `#lib/utils.js`.
+3. **The `/api` proxy** in `src/hooks.server.ts`:
+   - Read `API_URL` from `$env/dynamic/private` (default `http://localhost:3000`).
+   - For paths starting with `/api/`, `fetch` the same path and query on `API_URL` with the request's method, headers and body (`duplex: "half"` when there is a body).
+   - Return the API's response unchanged, so status, `content-type` (including `application/geo+json`) and errors pass through.
+   - Resolve every other path with `resolve(event)`.
+   - If the API cannot be reached, return the API's error shape: `503` with `{ "error": { "code": "DB_UNAVAILABLE", "message": "API unavailable", "detail": {} } }`.
+4. **Local HTTP**: the built server assumes `https` unless told otherwise. Document running it locally as `PROTOCOL_HEADER=x-forwarded-proto PORT=4173 bun ./build` (or set `paths.origin` in the SvelteKit config), and add `API_URL`, `PORT` and `PROTOCOL_HEADER` to a committed `web/.env.example`.
+5. Add dependencies: `hono`, `@tanstack/svelte-query`, `maplibre-gl`, `svelte-maplibre-gl`. The adapter bundles `devDependencies` into the server and leaves `dependencies` external, so keep all of these as `devDependencies`.
+6. Add shadcn components with `bunx --bun shadcn-svelte@latest add <names> --yes` from `web/`: `alert empty spinner field input-group pagination sheet toggle-group popover command dropdown-menu tooltip scroll-area chart avatar`. Read each added file. They pick up the theme automatically. If one uses `tv`, change its import to `#lib/utils.js`.
 
 Checks:
 - `bun run check` passes.
-- `bun run build` writes `web/dist/index.html`.
-- With the API running, `curl localhost:5173/api/health` returns `{"postgres":"ok","mongo":"ok"}`.
+- `bun run build` writes `web/build`, and `PORT=4173 bun ./build` serves the app.
+- With the API running, `curl localhost:5173/api/health` (dev) and `curl localhost:4173/api/health` (built) both return `{"postgres":"ok","mongo":"ok"}`.
+- `curl -i localhost:5173/api/map/area` shows `content-type: application/geo+json`.
 
 ## Phase 1: app shell and shared pieces
 
@@ -252,7 +266,7 @@ Check:
    - a second check-in blocked with the link to the active stay;
    - the map shows a dropped pin.
 2. **Root `README.md`**:
-   - how to run `web/` in dev and the single-process production mode (`bun run build` in `web/`, then the API serves `web/dist`);
+   - how to run `web/` in dev (`bun run dev`, API in the container) and in production (API on 3000, then `bun run build` and `PORT=4173 bun ./build` in `web/`, with `API_URL` pointing at the API);
    - tech choices with one-line reasons (copy the Decisions table);
    - screenshots of each screen;
    - the assumptions.
