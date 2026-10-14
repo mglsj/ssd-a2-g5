@@ -3,7 +3,7 @@
 	import * as Alert from '#lib/components/shadcn/alert/index.js';
 	import { Button } from '#lib/components/shadcn/button/index.js';
 	import { Spinner } from '#lib/components/shadcn/spinner/index.js';
-	import { errorInfo, toApiError } from '#lib/api/errors.js';
+	import { describeError, toApiError } from '#lib/api/errors.js';
 	import type { Snippet } from 'svelte';
 
 	type Props = {
@@ -21,7 +21,7 @@
 	let { error, onretry, retrying = false, title, class: className, children }: Props = $props();
 
 	const apiError = $derived(toApiError(error));
-	const info = $derived(errorInfo[apiError.code]);
+	const info = $derived(describeError(apiError));
 </script>
 
 <Alert.Root variant="destructive" class={className}>

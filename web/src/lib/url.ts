@@ -7,14 +7,16 @@ type ParamValue = string | number | boolean | null | undefined;
  * Writes filters, sort, page and tab into the query string. An empty value removes the key.
  * Any change other than `page` sends the list back to page 1.
  */
-export function setParams(params: Record<string, ParamValue>, { push = false } = {}) {
+export async function setParams(params: Record<string, ParamValue>, { push = false, toTop = false } = {}) {
 	const url = new URL(page.url.href);
 	for (const [key, value] of Object.entries(params)) {
 		if (value === null || value === undefined || value === '' || value === false) url.searchParams.delete(key);
 		else url.searchParams.set(key, String(value));
 	}
 	if (!('page' in params)) url.searchParams.delete('page');
-	return goto(url, { replace: !push, reset: false });
+	await goto(url, { replace: !push, reset: false });
+	// Paging scrolls back to the top. Filters keep the scroll position and focus.
+	if (toTop) window.scrollTo({ top: 0 });
 }
 
 export function stringParam(name: string): string {

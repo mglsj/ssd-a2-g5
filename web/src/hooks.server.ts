@@ -33,7 +33,13 @@ export const handle: Handle = async ({ event, resolve }) => {
 		} as RequestInit);
 	} catch {
 		return Response.json(
-			{ error: { code: "DB_UNAVAILABLE", message: "API unavailable", detail: {} } },
+			{
+				error: {
+					code: "DB_UNAVAILABLE",
+					message: "The web server could not reach the API.",
+					detail: { service: "api" },
+				},
+			},
 			{ status: 503 },
 		);
 	}

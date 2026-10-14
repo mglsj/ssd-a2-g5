@@ -23,7 +23,7 @@
 	function change(next: number) {
 		if (next === page) return;
 		if (onPageChange) onPageChange(next);
-		else setParams({ page: next === 1 ? null : next }, { push: true });
+		else setParams({ page: next === 1 ? null : next }, { push: true, toTop: true });
 	}
 </script>
 

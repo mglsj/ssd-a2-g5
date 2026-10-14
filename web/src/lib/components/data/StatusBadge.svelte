@@ -9,7 +9,7 @@
 
 	const styles = {
 		CONFIRMED: { variant: 'default', icon: CalendarCheckIcon },
-		CHECKED_IN: { variant: 'secondary', icon: DoorOpenIcon },
+		CHECKED_IN: { variant: 'outline', icon: DoorOpenIcon },
 		COMPLETED: { variant: 'success', icon: CircleCheckIcon }
 	} satisfies Record<BookingStatus, { variant: BadgeVariant; icon: unknown }>;
 

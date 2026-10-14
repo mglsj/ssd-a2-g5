@@ -7,7 +7,7 @@
 	import { Toaster } from '#lib/components/shadcn/sonner/index.js';
 	import AppShell from '#lib/components/app/AppShell.svelte';
 	import { isRetryable, toApiError } from '#lib/api/errors.js';
-	import { keys } from '#lib/api/queries.js';
+	import { keys, type Health } from '#lib/api/queries.js';
 	import { Actor, setActor } from '#lib/state/actor.svelte.js';
 	import type { LayoutProps } from './$types';
 
@@ -22,6 +22,14 @@
 			onError: (error, query) => {
 				const isActorGuest = query.queryHash === hashKey(keys.guests.detail(actor.guestId ?? ''));
 				if (isActorGuest && toApiError(error).code === 'NOT_FOUND') actor.guestId = null;
+			},
+			// Any successful request while the banner shows an outage re-checks health at once.
+			onSuccess: (_data, query) => {
+				if (query.queryKey[0] === keys.health[0]) return;
+				const health = queryClient.getQueryData<Health>(keys.health);
+				if (health && Object.values(health).includes('down')) {
+					queryClient.invalidateQueries({ queryKey: keys.health });
+				}
 			}
 		}),
 		defaultOptions: {

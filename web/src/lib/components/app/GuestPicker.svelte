@@ -3,7 +3,7 @@
 	import ChevronsUpDownIcon from '@lucide/svelte/icons/chevrons-up-down';
 	import UserRoundIcon from '@lucide/svelte/icons/user-round';
 	import WalletMinimalIcon from '@lucide/svelte/icons/wallet-minimal';
-	import { createQuery, keepPreviousData, useQueryClient } from '@tanstack/svelte-query';
+	import { createQuery, useQueryClient } from '@tanstack/svelte-query';
 	import { toast } from 'svelte-sonner';
 	import { Button } from '#lib/components/shadcn/button/index.js';
 	import * as Command from '#lib/components/shadcn/command/index.js';
@@ -34,7 +34,6 @@
 	const results = createQuery(() => ({
 		...queries.guests.list({ q: debounced.trim(), limit: '8' }),
 		enabled: open,
-		placeholderData: keepPreviousData
 	}));
 
 	function onSearch(value: string) {
@@ -69,7 +68,7 @@
 	}
 
 	const label = $derived(
-		actor.guestId === null ? 'Pick a guest' : (current.data?.name ?? (current.isError ? 'Unknown guest' : 'Loading…'))
+		actor.guestId === null ? 'Pick a guest' : (current.data?.name ?? (current.isError ? 'Guest unavailable' : 'Loading…'))
 	);
 </script>
 

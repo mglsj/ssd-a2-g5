@@ -69,6 +69,14 @@ export const errorInfo: Record<ErrorCode, { title: string; icon: Component }> = 
 	INTERNAL: { title: 'Something went wrong', icon: CircleAlertIcon }
 };
 
+/** The title and icon for an error. The /api proxy marks an unreachable API with detail.service. */
+export function describeError(error: ApiError): { title: string; icon: Component } {
+	if (error.code === 'DB_UNAVAILABLE' && error.detail.service === 'api') {
+		return { title: 'The API is down', icon: errorInfo.DB_UNAVAILABLE.icon };
+	}
+	return errorInfo[error.code];
+}
+
 /** Errors worth retrying automatically. A 4xx will fail the same way again. */
 export function isRetryable(error: unknown): boolean {
 	const status = error instanceof ApiError ? error.status : 0;
