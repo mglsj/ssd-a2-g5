@@ -6,7 +6,10 @@ It does not compute business results itself.
 
 ## Conventions
 
-- Base path is `/api`. Requests and responses are JSON.
+- Base path is `/api`. Requests and responses are JSON, except the map layers, which are GeoJSON (see [Map](#map-workflow-3)).
+- `api/src/client.ts` exports `createClient(baseUrl)`, a typed client built on Hono's `hc`. Query, body and response types come from the same Zod schemas, so a wrong parameter is a type error in `web/`.
+- When `web/dist/index.html` exists, the API also serves the built front end, and any path outside `/api` falls back to `index.html` for client-side routing. `WEB_DIST` points it at another folder.
+- The running API serves this contract as OpenAPI 3.1 at `/api/openapi.json` and as interactive docs at `/api/docs`. Each route declares its input and output with Zod in `api/src/modules/<feature>/<feature>.routes.ts`, so the two cannot drift.
 - IDs are UUID strings. The API rejects a malformed UUID with `400` before it reaches the database.
 - Money is a string with two decimals (`"1250.00"`), as PostgreSQL returns `DECIMAL`. The front end formats it as rupees.
 - Timestamps are ISO 8601 strings in UTC. Dates (`from`, `to`, `as_of`) are `YYYY-MM-DD`.
@@ -34,9 +37,10 @@ Every error has the same shape:
 
 | Source | Condition | HTTP | `code` |
 |---|---|---|---|
-| API validation | Missing or malformed field, bad UUID, bad date, unreadable JSON body | 400 | `BAD_REQUEST` |
+| API validation | Missing or malformed field, bad UUID, bad date, unreadable JSON body. `detail.issues` lists each `{ path, message }` | 400 | `BAD_REQUEST` |
 | PostgreSQL `P0002` (`no_data_found`) | Guest, property or booking does not exist | 404 | `NOT_FOUND` |
 | PostgreSQL `22023` (`invalid_parameter_value`) from `sp_execute_booking` or `sp_top_up_wallet` | Nights outside 1 to 365, top-up amount not positive | 422 | `INVALID_INPUT` |
+| PostgreSQL `22003` (`numeric_value_out_of_range`) | A top-up would push the wallet past 99,999,999.99 | 422 | `INVALID_INPUT` |
 | PostgreSQL `22023` from `sp_update_booking_status` | Transition other than CONFIRMED to CHECKED_IN to COMPLETED | 409 | `INVALID_TRANSITION` |
 | PostgreSQL `23514`, constraint `chk_guests_wallet_nonnegative` | Wallet cannot cover the booking | 409 | `INSUFFICIENT_BALANCE` |
 | PostgreSQL `23505`, constraint `idx_active_stay` | Guest already has a CHECKED_IN booking | 409 | `ALREADY_CHECKED_IN` |
@@ -64,9 +68,12 @@ Returns `503` if either one fails.
 |---|---|
 | `q` | Case-insensitive name search |
 | `page`, `limit` | Pagination |
-| `sort` | `name` (default) or `balance` |
+| `sort` | `name` (default), `balance_desc` or `balance_asc` |
+| `has_active_stay` | `true` keeps guests with a CHECKED_IN booking, `false` keeps the rest |
 
 Item: `{ "id", "name", "wallet_balance" }`
+
+For the demo, `sort=balance_asc` finds a guest who cannot afford a booking, and `has_active_stay=true` finds one whose next check-in will hit `idx_active_stay`.
 
 ### `GET /api/guests/:id`
 
@@ -87,7 +94,7 @@ Item: `{ "id", "name", "wallet_balance" }`
 
 Calls `sp_top_up_wallet`.
 
-Body: `{ "amount": 5000 }`
+Body: `{ "amount": 5000 }`. `amount` is a number or a numeric string, positive, with at most two decimals.
 
 ```json
 {
@@ -105,7 +112,7 @@ The wallet audit trail. Uses `idx_wallet_audit_logs_guest_time`.
 
 | Query | Notes |
 |---|---|
-| `from`, `to` | Optional date range, both inclusive |
+| `from`, `to` | Optional date range in UTC days, both inclusive. `from` after `to` gives `400` |
 | `order` | `desc` (default, newest first) or `asc` |
 | `page`, `limit` | Pagination |
 
@@ -121,7 +128,8 @@ The wallet audit trail. Uses `idx_wallet_audit_logs_guest_time`.
 ```
 
 `balance_after` is the running balance, since the trigger records it on every change.
-`opening_balance` is the `balance_after` of the last row before `from` (`"0.00"` if there is none), and `closing_balance` is the last row in the range.
+`opening_balance` is the balance just before the range: the `balance_after` of the last row before `from`, or, when there is none, the balance before the guest's first row.
+`closing_balance` is the `balance_after` of the last row up to `to`. So `opening_balance` plus every `signed_amount` in the range equals `closing_balance`.
 
 ## Properties
 
@@ -131,10 +139,12 @@ The wallet audit trail. Uses `idx_wallet_audit_logs_guest_time`.
 |---|---|
 | `q` | Case-insensitive title search. `%` and `_` match literally |
 | `min_price`, `max_price` | Filter on `base_price`. Must be non-negative numbers, and `min_price` cannot exceed `max_price` (`400` otherwise) |
-| `sort` | `title` (default), `price_asc`, `price_desc`, `revenue` (from `mv_property_summary`). Ties break on `id`, so pages stay stable |
+| `lat`, `lng` | Optional centre. Both or neither |
+| `radius` | Metres around the centre, default 5000, at most 50,000. Ignored without a centre |
+| `sort` | `title` (default), `price_asc`, `price_desc`, `revenue` (from `mv_property_summary`) or `distance` (needs a centre). Ties break on `id`, so pages stay stable |
 | `page`, `limit` | Pagination |
 
-Item: `{ "id", "title", "base_price", "latitude", "longitude" }`
+Item: `{ "id", "title", "base_price", "latitude", "longitude", "distance_meters" }`. `distance_meters` is the great-circle distance from the centre, or `null` without one.
 
 ### `GET /api/properties/:id`
 
@@ -153,7 +163,7 @@ Item: `{ "id", "title", "base_price", "latitude", "longitude" }`
 
 ### `GET /api/properties/:id/amenities`
 
-The `PropertyAmenities` document for the property: `amenities`, `house_rules`, `accessibility_features`, `safety_features`, `host_guidelines`, `star_rating`, `guest_rating`, `updated_at`.
+The `PropertyAmenities` document for the property without its `_id`: `property_id`, `property_title`, `amenities`, `house_rules`, `accessibility_features`, `safety_features`, `host_guidelines`, `star_rating`, `guest_rating`, `updated_at`.
 Fields vary between documents. `404` if the property has no catalog document, which the UI shows as an empty state.
 
 ## Bookings (Workflow 1)
@@ -180,7 +190,7 @@ Body: `{ "guest_id": "…", "property_id": "…", "nights": 3 }`
 
 ```json
 {
-  "booking": { "id": "…", "guest_id": "…", "property_id": "…", "nights": 3, "total_cost": "9000.00", "status": "CONFIRMED", "created_at": "…" },
+  "booking": { "id": "…", "guest_id": "…", "guest_name": "…", "property_id": "…", "property_title": "…", "nights": 3, "total_cost": "9000.00", "status": "CONFIRMED", "created_at": "…" },
   "balance_before": "13200.00",
   "balance_after": "4200.00",
   "audit_log": { "id": "…", "action_type": "DEBIT", "amount_changed": "9000.00", "balance_after": "4200.00", "timestamp": "…" }
@@ -207,10 +217,10 @@ One booking with guest and property names. `404` if missing.
 
 Moves a booking forward with `sp_update_booking_status`. This is how the UI demonstrates the partial unique index `idx_active_stay`.
 
-Body: `{ "status": "CHECKED_IN" }`
+Body: `{ "status": "CHECKED_IN" }`. `status` is `CONFIRMED`, `CHECKED_IN` or `COMPLETED`. The procedure decides which moves are allowed.
 
 ```json
-{ "booking": { "id": "…", "status": "CHECKED_IN" }, "previous_status": "CONFIRMED" }
+{ "booking": { "id": "…", "guest_name": "…", "property_title": "…", "status": "CHECKED_IN", "…": "…" }, "previous_status": "CONFIRMED" }
 ```
 
 Errors:
@@ -229,11 +239,13 @@ Calls `fn_property_moving_avg(from, to, property_id)`: completed booking revenue
 
 | Query | Notes |
 |---|---|
-| `property_id` | Required. Repeat up to 5 times to compare properties |
-| `from`, `to` | Default: the last 90 days. At most 366 days |
+| `property_id` | Optional. Repeat up to 5 times to compare properties. Repeated ids count once. An unknown id gives `404`. Default: the top 5 of `/analytics/rank` on `to` |
+| `from`, `to` | UTC days, at most 366 apart. Default `to`: the latest day with a COMPLETED booking. Default `from`: 89 days before `to` |
 
 ```json
 {
+  "from": "2026-06-27",
+  "to": "2026-09-24",
   "series": [
     {
       "property_id": "…",
@@ -244,7 +256,7 @@ Calls `fn_property_moving_avg(from, to, property_id)`: completed booking revenue
 }
 ```
 
-`property_id` is required because the function returns one row per property per day, which is 90,000 rows for all 1,000 properties over 90 days.
+The chart can load with no parameters and still show data, even when the seed data is weeks old. The API never charts every property: the function returns one row per property per day, which is 90,000 rows for 1,000 properties over 90 days.
 
 ### `GET /api/analytics/rank`
 
@@ -252,10 +264,12 @@ Calls `fn_property_revenue_rank(as_of, limit)`: properties ranked by their 7-day
 
 | Query | Notes |
 |---|---|
-| `as_of` | Default: today |
-| `limit` | Highest rank to include, default 10. Ties share a rank, so more rows than `limit` can come back |
+| `as_of` | Default: the latest UTC day with a COMPLETED booking, so the ranking is not all zeros when the seed data is a few days old |
+| `limit` | Highest rank to include, 1 to 100, default 10. Ties share a rank, so more rows than `limit` can come back, up to 100 |
 
-Item: `{ "revenue_rank": 1, "property_id", "title", "moving_avg_7d" }`
+```json
+{ "as_of": "2026-09-24", "items": [ { "revenue_rank": 1, "property_id": "…", "title": "…", "moving_avg_7d": "1285.71" } ] }
+```
 
 ### `GET /api/analytics/summary`
 
@@ -287,52 +301,95 @@ A new COMPLETED booking only shows up in the summary after this call. The demo u
 
 ## Map (Workflow 3)
 
-### `GET /api/hotspots`
+Every map layer is [GeoJSON (RFC 7946)](https://datatracker.ietf.org/doc/html/rfc7946) served as `application/geo+json`, so its URL can be the `data` of a MapLibre or Mapbox `geojson` source:
 
-Runs `buildHotspotPipeline` from `mongo/02_workflow3_geonear.js` on `SearchSessions`. `$geoNear` finds pins within the radius from the last `since` minutes, then groups them into grid cells about 1 km wide.
+```js
+map.addSource("hotspots", { type: "geojson", data: "/api/map/hotspots?lat=17.4455&lng=78.3489" });
+map.addLayer({ id: "hotspots", type: "circle", source: "hotspots",
+  paint: { "circle-radius": ["interpolate", ["linear"], ["get", "search_volume"], 1, 4, 30, 20] } });
+```
+
+- Coordinates are `[longitude, latitude]`.
+- Feature properties are flat, so style expressions read them with `["get", "…"]`.
+- Every feature has a top-level `id`. Hotspot ids are numbers, so `setFeatureState` works on them directly. Pins and properties use string ids, so set `promoteId: "id"` on their sources.
+- Money stays a string. Use `["to-number", ["get", "base_price"]]` in expressions.
+- Hotspots and pins also carry the search window as extra top-level members (`center`, `radius_meters`, `generated_at`). RFC 7946 allows these, and MapLibre ignores them.
+
+The search window is shared by hotspots, pins and density:
 
 | Query | Notes |
 |---|---|
 | `lat`, `lng` | Centre. Default: IIIT Hyderabad (17.4455, 78.3489) |
 | `radius` | Metres, default 5000, at most 5000 |
-| `since` | Minutes, default 120 (the TTL window) |
-| `sort` | `distance` (default) or `volume` |
+| `since` | Minutes, default 120, at most 120 (the TTL window) |
+
+### `GET /api/map/hotspots`
+
+Runs `buildHotspotPipeline` from `mongo/02_workflow3_geonear.js` on `SearchSessions`. `$geoNear` finds pins within the window, then groups them into grid cells about 1 km wide. Each cell is a point feature, and the features are the result list in order.
+
+Extra query: `sort`, either `distance` (default, by average distance) or `volume`.
 
 ```json
 {
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "id": 1,
+      "geometry": { "type": "Point", "coordinates": [78.35, 17.45] },
+      "properties": {
+        "rank": 1, "search_volume": 34, "unique_users_count": 31,
+        "avg_distance_meters": 840.2, "avg_distance_km": 0.84,
+        "min_distance_meters": 120.4, "max_distance_meters": 1480.2,
+        "latest_search_at": "…", "hotspot_status": "CRITICAL_SURGE"
+      }
+    }
+  ],
   "center": { "lat": 17.4455, "lng": 78.3489 },
   "radius_meters": 5000,
-  "generated_at": "…",
-  "items": [
-    {
-      "hotspot_cluster": { "type": "Point", "coordinates": [78.35, 17.44] },
-      "search_volume": 34,
-      "unique_users_count": 31,
-      "avg_distance_km": 0.84,
-      "min_distance_meters": 120.4,
-      "max_distance_meters": 1480.2,
-      "latest_search_at": "…",
-      "hotspot_status": "CRITICAL_SURGE"
-    }
-  ]
+  "generated_at": "…"
 }
 ```
 
-The map polls this every 10 seconds. `items` is empty when no pins are recent, for example two hours after seeding without `--live`.
+`features` is empty when no pins are recent, for example two hours after seeding without `--live`.
 
-### `GET /api/hotspots/density`
+### `GET /api/map/pins`
 
-Runs `buildRadialDensityPipeline`: pin counts in 1 km rings around the centre. Same `lat`, `lng`, `radius` and `since` query.
+Individual search pins in the window, nearest first. Uses `$geoNear` on the same compound 2dsphere and `created_at` index as the hotspots.
 
-Item: `{ "ring_start_km": 0, "ring_end_km": 1, "pin_drops_count": 212, "unique_searchers": 190, "avg_distance_m": 540.2 }`
+| Extra query | Notes |
+|---|---|
+| `after` | ISO timestamp. Only pins created after it |
+| `limit` | Nearest pins kept, default 1000, at most 5000 |
 
-### `POST /api/search-sessions`
+Each feature's properties are `{ "id", "session_id", "user_id", "created_at", "distance_meters" }`. The collection also has `cursor`: the newest `created_at` returned, or `after` when nothing is new.
 
-Adds one search pin, so a new ping can appear on the map during the demo.
+To make new pings appear without a reload, load the layer once, then every few seconds call it again with `after=<cursor>` and add the returned features to the source's data.
 
-Body: `{ "lat": 17.44, "lng": 78.35, "user_id": "…" }`. `user_id` is optional and defaults to the selected guest or `"anonymous"`.
+### `POST /api/map/pins`
 
-The API fills in `session_id` and `created_at`. `201` returns the stored document. Coordinates outside valid ranges give `BAD_REQUEST`.
+Drops one search pin, so a new ping can appear during the demo.
+
+Body: `{ "lat": 17.44, "lng": 78.35, "user_id": "…" }`. `user_id` is optional, usually the selected guest, and defaults to `"anonymous"`.
+
+`201` returns the stored pin as a feature in the same shape as `GET /api/map/pins`, with `distance_meters: null`. Coordinates outside valid ranges give `BAD_REQUEST`.
+
+### `GET /api/map/properties`
+
+Properties as point features with `{ "id", "title", "base_price", "distance_meters" }`. Takes the same `q`, `min_price`, `max_price`, `lat`, `lng` and `radius` filters as `GET /api/properties`, without pagination. With a centre, features are nearest first. Without one, the layer holds every property (about 1,000), which MapLibre can cluster on the client.
+
+### `GET /api/map/area`
+
+The search radius as a polygon feature (64 sides, counter-clockwise, closed), for a fill or outline layer around the origin. Query: `lat`, `lng` (default IIIT Hyderabad) and `radius` (metres, default 5000, at most 50,000).
+
+### `GET /api/map/density`
+
+Runs `buildRadialDensityPipeline`: pin counts in 1 km rings around the centre. This is chart data, so it stays plain JSON.
+
+```json
+{ "center": { "lat": 17.4455, "lng": 78.3489 }, "radius_meters": 5000, "generated_at": "…",
+  "items": [ { "ring_start_km": 0, "ring_end_km": 1, "pin_drops_count": 212, "unique_searchers": 190, "avg_distance_m": 540.2 } ] }
+```
 
 ## Reviews (Workflow 4)
 
@@ -365,20 +422,21 @@ Runs `buildReviewAnalyticsPipeline` from `mongo/03_workflow4_facet.js` on `Prope
 | Query | Notes |
 |---|---|
 | `property_id` | Optional filter |
-| `rating` | Optional, 1 to 5 |
+| `tag` | Optional. Only reviews with this location tag, for example after clicking a bar in the top-tags chart |
+| `rating` | Optional, 1 to 5. Matches the facet's buckets, so `4` means 4 up to but not including 5 |
 | `page`, `limit` | Pagination, newest first |
 
-Item: `{ "id", "property_id", "guest_id", "booking_id", "rating", "sub_ratings", "location_tags", "review_text", "created_at" }`
+Item: `{ "id", "property_id", "guest_id", "booking_id", "rating", "sub_ratings", "location_tags", "review_text", "created_at" }`. `id` is the MongoDB `_id` as a hex string.
 
 ## Which screen uses what
 
 | Screen | Endpoints |
 |---|---|
-| Guest switcher | `GET /guests`, `GET /guests/:id` |
+| Guest switcher | `GET /guests` (with `sort=balance_asc` or `has_active_stay` for demo picks), `GET /guests/:id` |
 | Properties list and detail | `GET /properties`, `GET /properties/:id`, `GET /properties/:id/amenities`, `GET /reviews/analytics?property_id=`, `GET /reviews` |
 | Book a stay | `GET /guests/:id`, `POST /bookings`, `POST /guests/:id/top-up` |
 | Guests and bookings (operations) | `GET /guests`, `GET /bookings`, `PATCH /bookings/:id/status` |
 | Audit trail | `GET /guests/:id/audit` |
-| Analytics | `GET /analytics/moving-average`, `GET /analytics/rank`, `GET /analytics/summary`, `POST /analytics/summary/refresh` |
-| Map | `GET /hotspots`, `GET /hotspots/density`, `POST /search-sessions` |
-| Reviews | `GET /reviews/analytics`, `GET /reviews`, `GET /properties/:id/amenities` |
+| Analytics | `GET /analytics/moving-average` (no parameters on first load), `GET /analytics/rank`, `GET /analytics/summary`, `POST /analytics/summary/refresh` |
+| Map | `GET /map/hotspots`, `GET /map/pins` (polled with `after`), `POST /map/pins`, `GET /map/properties`, `GET /map/area`, `GET /map/density` |
+| Reviews | `GET /reviews/analytics`, `GET /reviews` (with `tag` from the chart), `GET /properties/:id/amenities` |

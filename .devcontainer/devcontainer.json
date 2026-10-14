@@ -4,10 +4,13 @@
   "service": "app",
   "workspaceFolder": "/workspace",
   "forwardPorts": [
-    3000,
     5000
   ],
   "portsAttributes": {
+    "3000": {
+      "label": "StaySpot API",
+      "onAutoForward": "notify"
+    },
     "5432": {
       "label": "PostgreSQL"
     },

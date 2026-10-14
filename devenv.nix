@@ -5,8 +5,6 @@
   ...
 }:
 {
-  claude.code.enable = true;
-
   packages = [
     pkgs.git
     pkgs.mongosh

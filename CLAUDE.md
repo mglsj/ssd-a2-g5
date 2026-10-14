@@ -7,7 +7,7 @@ The briefs are `assignment 1.pdf` and `assignment 2.pdf` at the repo root. Extra
 
 ## Layout rules
 
-- The Assignment 1 folders keep exactly their required files. Do not add files to `sql/`, `mongo/` or `performance/`. `data_generation/` may only add the uv project files (`pyproject.toml`, `uv.lock`).
+- The Assignment 1 folders keep exactly their required files. Do not add files to `sql/`, `mongo/` or `performance/`. `data_generation/` may only add the uv project files (`pyproject.toml`, `uv.lock`) and `data.py`.
 - Assignment 2 adds `api/`, `web/`, `docs/api_endpoints.md` and `docs/design/`. Helper scripts go in `scripts/`.
 - There is no `<team>_a1b/` top folder. A zip script adds it at submission time.
 - The root `README.md` is the Assignment 2 README. The original Assignment 1 README is `docs/README_a1.md`.
@@ -21,7 +21,18 @@ The dev container (`.devcontainer/`) runs PostgreSQL 18, MongoDB 8 and a devenv 
 bash scripts/setup_db.sh                 # drop schema, run sql/0*.sql, seed both databases (about 40 s)
 bash scripts/regenerate_performance.sh   # rewrite both files in performance/
 uv run --project data_generation python data_generation/mongo_seeder.py --sessions 0 --live   # fresh map pins
+cd api && bun run dev                    # API on :3000, docs at /api/docs
+cd api && bun run typecheck && bun test  # tests hit the seeded databases and add a few rows
 ```
+
+## API
+
+- Bun, Hono and `@hono/zod-openapi`. Code is grouped by feature in `api/src/modules/<feature>/` with `schemas`, `repository`, `routes`, `handlers` and `index.ts` files (see `api/README.md`). Queries live only in repositories. `api/src/shared/errors/to-api-error.ts` maps SQLSTATE codes to the error codes in `docs/api_endpoints.md`.
+- PostgreSQL goes through `Bun.sql` with no ORM. Bun decodes a zero NUMERIC from a parameterised query as `"0"`, so queries cast money columns to `::text` and procedure OUT values go through `money()`.
+- The `mongodb` driver stays on v6. v7's `bson` does not load on Bun 1.3.
+- Map endpoints under `/api/map` return GeoJSON (`application/geo+json`) for MapLibre sources: `[lng, lat]`, flat feature properties, a top-level `id` on every feature. Declare them with `geoJson()` from `shared/openapi.ts`. Density is chart data and stays plain JSON.
+- Build `Bun.sql` fragments inside a function (`const where = () => sql\`...\``) when a query uses them twice, rather than sharing one fragment object.
+- `src/client.ts` exports a typed `hc` client from `AppType`. `test/client.test.ts` breaks the type check if route types stop flowing through.
 
 From the Windows host, run commands inside the container with
 `MSYS_NO_PATHCONV=1 docker exec -w /workspace ssd_a2_devcontainer-app-1 devenv shell -- bash -c '...'`.
@@ -40,7 +51,8 @@ Plain `docker exec` without `devenv shell` misses `LD_LIBRARY_PATH` and `UV_PROJ
 ## Seed data
 
 - Everything is set in Hyderabad, with rupee amounts and Faker's `en_IN` locale.
-- `postgres_seeder.py` holds `LOCALITIES` (32 weighted localities) and `TRIVAGO_LISTINGS` (209 real listings from trivago searches around IIIT). `mongo_seeder.py` imports both.
+- `postgres_seeder.py` holds `LOCALITIES` (32 weighted localities). `data.py` holds `TRIVAGO_LISTINGS` (1,000 real listings from trivago searches across Hyderabad, centred on IIIT). Both seeders import from there.
+- Both seeders insert with thread pools. Postgres loads `bookings` and `wallet_audit_logs` in parallel after the parent tables commit. Mongo keeps document generation on the main thread so the seed stays reproducible.
 - After changing seed logic, check that every guest's `wallet_balance` equals their latest `balance_after` and that no guest has two CHECKED_IN bookings.
 
 ## Conventions

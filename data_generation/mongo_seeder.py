@@ -6,6 +6,7 @@ import sys
 import time
 import uuid
 from collections.abc import Iterable
+from concurrent.futures import ALL_COMPLETED, FIRST_COMPLETED, ThreadPoolExecutor, wait
 from datetime import datetime, timedelta, timezone
 
 try:
@@ -21,7 +22,8 @@ except ImportError:
     print("Error: faker not installed. Run: uv sync (in data_generation/)")
     sys.exit(1)
 
-from postgres_seeder import LOCALITIES, TRIVAGO_LISTINGS, point_near
+from data import TRIVAGO_LISTINGS
+from postgres_seeder import LOCALITIES, point_near
 
 
 fake = Faker("en_IN")
@@ -30,6 +32,7 @@ random.seed(42)
 
 
 USER_POOL_SIZE = 50000
+WORKERS = 4
 PIN_RADIUS_KM = 0.8
 LOCALITY_WEIGHTS = [locality[3] for locality in LOCALITIES]
 PLATFORMS = ["iOS", "Android", "Web"]
@@ -241,18 +244,41 @@ REVIEW_PHRASES = {
 }
 
 
-def insert_in_batches(collection: Collection, docs: Iterable[dict], batch_size: int, label: str) -> int:
-    """Insert docs in unordered batches and return how many were written."""
-    total, batch = 0, []
-    for doc in docs:
-        batch.append(doc)
-        if len(batch) >= batch_size:
-            total += len(collection.insert_many(batch, ordered=False).inserted_ids)
-            batch = []
-            if total % 100000 == 0:
+def insert_in_batches(
+    collection: Collection, docs: Iterable[dict], batch_size: int, label: str, workers: int = WORKERS
+) -> int:
+    """Insert docs in unordered batches and return how many were written.
+
+    The calling thread generates docs, so the seeded random stream stays
+    deterministic. Worker threads send the batches, and the driver releases the
+    GIL while it waits on the network, so generation and inserts overlap.
+    """
+    total, batch, pending = 0, [], set()
+
+    def reap(return_when: str):
+        nonlocal total, pending
+        done, pending = wait(pending, return_when=return_when)
+        for future in done:
+            before = total // 100000
+            total += future.result()
+            if total // 100000 > before:
                 print(f"  Inserted {total:,} {label}")
-    if batch:
-        total += len(collection.insert_many(batch, ordered=False).inserted_ids)
+
+    def write(docs_batch: list[dict]) -> int:
+        return len(collection.insert_many(docs_batch, ordered=False).inserted_ids)
+
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        for doc in docs:
+            batch.append(doc)
+            if len(batch) >= batch_size:
+                pending.add(pool.submit(write, batch))
+                batch = []
+                # Cap the batches held in memory at twice the worker count.
+                while len(pending) >= workers * 2:
+                    reap(FIRST_COMPLETED)
+        if batch:
+            pending.add(pool.submit(write, batch))
+        reap(ALL_COMPLETED)
     print(f"Completed: {total:,} {label} inserted")
     return total
 

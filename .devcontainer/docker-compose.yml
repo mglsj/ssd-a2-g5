@@ -5,10 +5,15 @@ services:
       dockerfile: .devcontainer/Dockerfile
     volumes:
       - ..:/workspace:cached
+    ports:
+      # StaySpot API (api/). Set API_HOST_PORT if 3000 is taken on the host.
+      - "${API_HOST_PORT:-3000}:3000"
     environment:
       PG_URI: postgresql://postgres:postgres@postgres:5432/stayspot
       MONGO_URI: mongodb://mongo:27017/stayspot
       MONGO_DB: stayspot
+      HOST: 0.0.0.0
+      PORT: 3000
     depends_on:
       mongo:
         condition: service_healthy

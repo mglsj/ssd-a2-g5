@@ -35,6 +35,12 @@ Seeded search pins expire after 2 hours. To keep adding new ones for the map:
 uv run --project data_generation python data_generation/mongo_seeder.py --sessions 0 --live
 ```
 
+Start the API on port 3000. Its interactive docs are at http://localhost:3000/api/docs. See [`api/README.md`](api/README.md).
+
+```bash
+cd api && bun install && bun run dev
+```
+
 ## Workflows
 
 ```sql

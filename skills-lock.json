@@ -19,6 +19,18 @@
       "skillPath": "skills/postgres/SKILL.md",
       "computedHash": "54ce5fd368f13d598f9afbd3feed8fb5ac7902afbb6cb0125e4ad187c8972c79"
     },
+    "svelte-code-writer": {
+      "source": "sveltejs/ai-tools",
+      "sourceType": "github",
+      "skillPath": "plugins/claude/svelte/skills/svelte-code-writer/SKILL.md",
+      "computedHash": "291c1505d33c3e3eed60ce631f5b4f58b568d7d66439e642a647306897acd06e"
+    },
+    "svelte-core-bestpractices": {
+      "source": "sveltejs/ai-tools",
+      "sourceType": "github",
+      "skillPath": "plugins/claude/svelte/skills/svelte-core-bestpractices/SKILL.md",
+      "computedHash": "3cd6c1f1a92b8bf52af8120e5cb3a93b5512f83b905fd902b895adafb7225456"
+    },
     "tailwind-design-system": {
       "source": "wshobson/agents",
       "sourceType": "github",

@@ -54,7 +54,8 @@ We also found problems by reading the code:
 
 ### Seed data
 
-- All data is set in Hyderabad, with Indian names and rupee amounts. 209 properties are real listings from trivago searches around IIIT Hyderabad, with their names, coordinates, prices, amenities and ratings. Synthetic homes fill the rest near 32 weighted localities.
+- All data is set in Hyderabad, with Indian names and rupee amounts. 1,000 properties are real listings from trivago searches spread across Hyderabad and centred on IIIT, with their names, coordinates, prices, amenities and ratings. They live in `data_generation/data.py`. The seeders only add synthetic homes near 32 weighted localities if `--properties` is larger than the listing count.
+- Both seeders insert in parallel. The Postgres seeder loads `bookings` and `wallet_audit_logs` on separate connections (`--workers`, default 4) after `guests` and `properties` commit. The Mongo seeder generates documents on one thread, so the seed stays deterministic, and sends batches from a thread pool.
 - The Postgres seeder builds a ledger per guest that ends at their wallet balance, gives each guest at most one CHECKED_IN booking, refreshes the materialized view and runs `VACUUM ANALYZE`.
 - Every review belongs to a real COMPLETED booking and uses 1 to 5 stars. Search pins use real guest ids, and `--live` keeps inserting fresh pins after the 2-hour TTL.
 - 45% of search pins fall within 5 km of IIIT. With the compound index, Workflow 3 went from about 4 s to under 2 s.
