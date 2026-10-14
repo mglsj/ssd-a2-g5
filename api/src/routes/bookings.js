@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { query } from "../db/postgres.js";
-import { isUUID, pagination } from "../utils/validation.js";
+import { isUUID, pagination, readJson } from "../utils/validation.js";
 import { badRequest, errorResponse } from "../utils/errors.js";
 
 const app = new Hono();
@@ -100,7 +100,11 @@ app.get("/", async (c) => {
 
 app.post("/", async (c) => {
   try {
-    const body = await c.req.json();
+    const body = await readJson(c);
+
+    if (!body) {
+      return badRequest(c, "Invalid JSON body");
+    }
 
     if (!isUUID(body.guest_id)) {
       return badRequest(c, "Malformed guest UUID");
@@ -257,7 +261,11 @@ app.patch("/:id/status", async (c) => {
       return badRequest(c, "Malformed booking UUID");
     }
 
-    const body = await c.req.json();
+    const body = await readJson(c);
+
+    if (!body) {
+      return badRequest(c, "Invalid JSON body");
+    }
 
     if (
       !["CHECKED_IN", "COMPLETED"].includes(body.status)
@@ -295,6 +303,7 @@ app.patch("/:id/status", async (c) => {
     const e = errorResponse(error);
 
     if (error?.code === "22023") {
+      e.status = 409;
       e.body.error.code = "INVALID_TRANSITION";
 
       const match = error.message.match(

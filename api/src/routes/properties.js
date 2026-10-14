@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { query } from "../db/postgres.js";
 import { propertyAmenities } from "../db/mongo.js";
-import { isUUID, pagination } from "../utils/validation.js";
+import { escapeLike, isUUID, pagination } from "../utils/validation.js";
 import { badRequest, errorResponse } from "../utils/errors.js";
 
 const app = new Hono();
@@ -20,10 +20,10 @@ app.get("/", async (c) => {
     }
 
     const sortMap = {
-      title: "p.title ASC",
-      price_asc: "p.base_price ASC",
-      price_desc: "p.base_price DESC",
-      revenue: "COALESCE(m.gross_revenue, 0) DESC"
+      title: "p.title ASC, p.id ASC",
+      price_asc: "p.base_price ASC, p.id ASC",
+      price_desc: "p.base_price DESC, p.id ASC",
+      revenue: "COALESCE(m.gross_revenue, 0) DESC, p.id ASC"
     };
 
     if (!sortMap[sort]) {
@@ -31,31 +31,43 @@ app.get("/", async (c) => {
     }
 
     const conditions = [
-      "p.title ILIKE '%' || $1 || '%'"
+      "p.title ILIKE '%' || $1 || '%' ESCAPE '\\'"
     ];
 
-    const params = [q];
+    const params = [escapeLike(q)];
+
+    let minValue = null;
 
     if (minPrice !== undefined) {
       const n = Number(minPrice);
 
-      if (Number.isNaN(n)) {
+      if (minPrice.trim() === "" || !Number.isFinite(n) || n < 0) {
         return badRequest(c, "Invalid min_price");
       }
+
+      minValue = n;
 
       params.push(n);
       conditions.push(`p.base_price >= $${params.length}`);
     }
 
+    let maxValue = null;
+
     if (maxPrice !== undefined) {
       const n = Number(maxPrice);
 
-      if (Number.isNaN(n)) {
+      if (maxPrice.trim() === "" || !Number.isFinite(n) || n < 0) {
         return badRequest(c, "Invalid max_price");
       }
 
+      maxValue = n;
+
       params.push(n);
       conditions.push(`p.base_price <= $${params.length}`);
+    }
+
+    if (minValue !== null && maxValue !== null && minValue > maxValue) {
+      return badRequest(c, "min_price cannot be greater than max_price");
     }
 
     const where = conditions.join(" AND ");
