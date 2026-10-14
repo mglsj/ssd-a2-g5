@@ -14,6 +14,9 @@ export type BookingListQuery = QueryOf<typeof api.bookings.$get>;
 export type ReviewListQuery = QueryOf<typeof api.reviews.$get>;
 export type AreaQuery = QueryOf<typeof api.map.area.$get>;
 export type AuditQuery = QueryOf<(typeof api.guests)[':id']['audit']['$get']>;
+export type MovingAverageQuery = QueryOf<typeof api.analytics['moving-average']['$get']>;
+export type RankQuery = QueryOf<typeof api.analytics.rank.$get>;
+export type SummaryQuery = QueryOf<typeof api.analytics.summary.$get>;
 
 export type GuestDetail = Success<Awaited<ReturnType<(typeof api.guests)[':id']['$get']>>>;
 export type PropertyDetail = Success<Awaited<ReturnType<(typeof api.properties)[':id']['$get']>>>;
@@ -21,6 +24,9 @@ export type Amenities = Success<Awaited<ReturnType<(typeof api.properties)[':id'
 export type Booking = Success<Awaited<ReturnType<(typeof api.bookings)[':id']['$get']>>>;
 export type ReviewFacets = Success<Awaited<ReturnType<typeof api.reviews.analytics.$get>>>;
 export type Review = Success<Awaited<ReturnType<typeof api.reviews.$get>>>['items'][number];
+export type MovingAverage = Success<Awaited<ReturnType<typeof api.analytics['moving-average']['$get']>>>;
+export type Ranking = Success<Awaited<ReturnType<typeof api.analytics.rank.$get>>>;
+export type SummaryPage = Success<Awaited<ReturnType<typeof api.analytics.summary.$get>>>;
 export type AuditPage = Success<Awaited<ReturnType<(typeof api.guests)[':id']['audit']['$get']>>>;
 export type AuditEntry = NonNullable<GuestDetail['latest_audit']>;
 export type BookingResult = Success<Awaited<ReturnType<typeof api.bookings.$post>>>;
@@ -62,6 +68,12 @@ export const keys = {
 	},
 	map: {
 		area: (query: AreaQuery) => ['map', 'area', query] as const
+	},
+	analytics: {
+		all: ['analytics'] as const,
+		movingAverage: (query: MovingAverageQuery) => ['analytics', 'moving-average', query] as const,
+		rank: (query: RankQuery) => ['analytics', 'rank', query] as const,
+		summary: (query: SummaryQuery) => ['analytics', 'summary', query] as const
 	}
 };
 
@@ -158,6 +170,27 @@ export const queries = {
 			})
 	},
 
+	analytics: {
+		movingAverage: (query: MovingAverageQuery) =>
+			queryOptions({
+				queryKey: keys.analytics.movingAverage(query),
+				queryFn: ({ signal }) => unwrap(api.analytics['moving-average'].$get({ query }, init(signal))),
+				placeholderData: keepPreviousData
+			}),
+		rank: (query: RankQuery) =>
+			queryOptions({
+				queryKey: keys.analytics.rank(query),
+				queryFn: ({ signal }) => unwrap(api.analytics.rank.$get({ query }, init(signal))),
+				placeholderData: keepPreviousData
+			}),
+		summary: (query: SummaryQuery) =>
+			queryOptions({
+				queryKey: keys.analytics.summary(query),
+				queryFn: ({ signal }) => unwrap(api.analytics.summary.$get({ query }, init(signal))),
+				placeholderData: keepPreviousData
+			})
+	},
+
 	map: {
 		area: (query: AreaQuery) =>
 			queryOptions({
@@ -172,6 +205,7 @@ export const queries = {
 export const mutations = {
 	book: (body: { guest_id: string; property_id: string; nights: number }) => unwrap(api.bookings.$post({ json: body })),
 	topUp: (id: string, amount: string) => unwrap(api.guests[':id']['top-up'].$post({ param: { id }, json: { amount } })),
+	refreshSummary: () => unwrap(api.analytics.summary.refresh.$post()),
 	setStatus: (id: string, status: BookingStatus) =>
 		unwrap(api.bookings[':id'].status.$patch({ param: { id }, json: { status } }))
 };

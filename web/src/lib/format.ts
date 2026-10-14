@@ -25,6 +25,39 @@ export function fromPaise(paise: number): string {
 	return (paise / 100).toFixed(2);
 }
 
+const rupeeCompactFormat = new Intl.NumberFormat('en-IN', {
+	style: 'currency',
+	currency: 'INR',
+	notation: 'compact',
+	maximumFractionDigits: 1
+});
+const countCompactFormat = new Intl.NumberFormat('en-IN', { notation: 'compact', maximumFractionDigits: 1 });
+
+/** "₹107.6Cr", "₹1.6L", "₹12K": Indian lakh and crore steps, for tiles and axis ticks. */
+export function rupeesCompact(value: string | number): string {
+	return rupeeCompactFormat.format(Number(value));
+}
+
+/** "2.9L", "39K". */
+export function countCompact(value: number): string {
+	return countCompactFormat.format(value);
+}
+
+/** "17 Jul" for a YYYY-MM-DD day, read as UTC so the day never shifts. */
+export function shortDay(day: string): string {
+	return new Date(`${day}T00:00:00Z`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+}
+
+/** "17 Jul 2026" for a YYYY-MM-DD day, read as UTC. */
+export function longDay(day: string): string {
+	return new Date(`${day}T00:00:00Z`).toLocaleDateString('en-IN', {
+		day: 'numeric',
+		month: 'short',
+		year: 'numeric',
+		timeZone: 'UTC'
+	});
+}
+
 export function count(value: number): string {
 	return numberFormat.format(value);
 }
