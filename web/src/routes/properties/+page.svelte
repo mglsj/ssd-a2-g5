@@ -14,6 +14,7 @@
 	import EmptyState from '#lib/components/states/EmptyState.svelte';
 	import QueryBoundary from '#lib/components/states/QueryBoundary.svelte';
 	import PropertyCard from '#lib/features/properties/PropertyCard.svelte';
+	import { unsplashUrl } from '#lib/features/properties/photos.js';
 	import { PAGE_SIZE, queries, type PropertyListQuery } from '#lib/api/queries.js';
 	import { count } from '#lib/format.js';
 	import { IIIT } from '#lib/map/theme.svelte.js';
@@ -179,10 +180,14 @@
 	{/snippet}
 	{#snippet children(data)}
 		<ul class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-label="Properties">
-			{#each data.items as property (property.id)}
-				<li class="flex"><PropertyCard {property} /></li>
+			{#each data.items as property, i (property.id)}
+				<li class="flex"><PropertyCard {property} eager={i < 3} /></li>
 			{/each}
 		</ul>
 		<Pager page={data.page} limit={data.limit} total={data.total} noun="stays" />
+		<p class="text-caption text-muted-foreground">
+			Photos are illustrative, from <a href={unsplashUrl} target="_blank" rel="noopener noreferrer">Unsplash</a>. Each
+			property page credits its photographer.
+		</p>
 	{/snippet}
 </QueryBoundary>

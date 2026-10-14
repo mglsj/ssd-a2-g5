@@ -12,6 +12,7 @@
 	import EmptyState from '#lib/components/states/EmptyState.svelte';
 	import ErrorState from '#lib/components/states/ErrorState.svelte';
 	import BookingPanel from '#lib/features/properties/BookingPanel.svelte';
+	import PropertyPhoto from '#lib/features/properties/PropertyPhoto.svelte';
 	import PropertyReviews from '#lib/features/properties/PropertyReviews.svelte';
 	import { toApiError } from '#lib/api/errors.js';
 	import { queries } from '#lib/api/queries.js';
@@ -69,6 +70,7 @@
 
 	<div class="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
 		<div class="flex min-w-0 flex-col gap-6">
+			<PropertyPhoto propertyId={id} />
 			<div class="grid items-start gap-6 md:grid-cols-2">
 				<CatalogDocument query={amenities} />
 				<PropertyReviews propertyId={id} />
