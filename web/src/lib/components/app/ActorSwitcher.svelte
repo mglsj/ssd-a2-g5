@@ -9,8 +9,11 @@
 	const actor = getActor();
 
 	// The selected role reads as a solid ink pill. Blue stays reserved for actions.
+	// Equal halves when the switcher is full width. min-w-fit stops a half shrinking below its label,
+	// which squeezed "Manager" into its padding. The padding repeats the toggle group's own variants,
+	// which a plain px-* cannot override.
 	const itemClass =
-		'text-muted-foreground data-[state=on]:bg-foreground data-[state=on]:text-background data-[state=on]:hover:bg-foreground/90 data-[state=on]:hover:text-background flex-1';
+		'text-muted-foreground data-[state=on]:bg-foreground data-[state=on]:text-background data-[state=on]:hover:bg-foreground/90 data-[state=on]:hover:text-background min-w-fit flex-1 gap-1.5 group-data-[spacing=0]/toggle-group:px-3 group-data-[spacing=0]/toggle-group:has-data-[icon=inline-start]:pl-2.5';
 </script>
 
 <ToggleGroup.Root
