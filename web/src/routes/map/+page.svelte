@@ -12,11 +12,9 @@
 	import type * as maplibregl from 'maplibre-gl';
 	import {
 		CircleLayer,
-		FeatureState,
 		FillLayer,
 		GeoJSONSource,
 		HeatmapLayer,
-		Image,
 		LineLayer,
 		MapLibre,
 		Marker,
@@ -109,19 +107,47 @@
 	let center = $state<[number, number]>([lng, lat]);
 
 	// The property marker, redrawn when the colour mode changes. Sharp at the screen's pixel ratio.
+	// Not "lodging": the basemap sprite already has an icon by that name.
+	const LODGING = 'stayspot-lodging';
 	const iconRatio = Math.max(2, Math.ceil(globalThis.devicePixelRatio ?? 1));
-	const lodgingIcon = $derived(
-		createLodgingIcon(
-			{ fill: theme.colors.lodging, icon: theme.colors.lodgingForeground, ring: theme.colors.card },
-			iconRatio
-		)
-	);
+	let lodgingIcon = $state<HTMLImageElement | null>(null);
+	$effect(() => {
+		let current = true;
+		const colors = { fill: theme.colors.lodging, icon: theme.colors.lodgingForeground, ring: theme.colors.card };
+		createLodgingIcon(colors, iconRatio).then((image) => current && (lodgingIcon = image));
+		return () => (current = false);
+	});
+
+	// A style swap drops added images, and <Image> then fails removing them. So the map gets the
+	// marker here, and again whenever it reports the image missing after a swap.
+	function addLodgingIcon(m: maplibregl.Map) {
+		if (!lodgingIcon) return;
+		if (m.hasImage(LODGING)) m.updateImage(LODGING, lodgingIcon);
+		else m.addImage(LODGING, lodgingIcon, { pixelRatio: iconRatio });
+	}
+	$effect(() => {
+		if (map && lodgingIcon) addLodgingIcon(map);
+	});
 
 	const visibility = (layer: string) => ({ visibility: layers.includes(layer) ? ('visible' as const) : ('none' as const) });
 
 	// Pan smoothly to a new origin (a map click, the picker or the Back button), keeping the zoom.
 	$effect(() => {
 		map?.easeTo({ center: [lng, lat], duration: motionMs(1000) });
+	});
+
+	// MapLibre throws on feature state while a style loads, which happens when the colour mode switches.
+	// So the hover ring is set here, only while the style is ready, rather than with <FeatureState>.
+	let styleReady = $state(false);
+	$effect(() => {
+		const m = map;
+		const id = hovered;
+		void hotspots.data;
+		if (!m || id === null || !styleReady || !m.getSource('hotspots')) return;
+		m.setFeatureState({ source: 'hotspots', id }, { hover: true });
+		return () => {
+			if (m.isStyleLoaded() && m.getSource('hotspots')) m.removeFeatureState({ source: 'hotspots', id }, 'hover');
+		};
 	});
 
 	const drop = createMutation(() => ({
@@ -258,100 +284,99 @@
 
 <div class="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
 	<div class="relative h-[60vh] min-h-96 overflow-hidden rounded-lg border lg:h-[calc(100dvh-14rem)]">
-		<MapLibre
-			bind:map
-			class="h-full w-full"
-			style={theme.style}
-			bind:center
-			zoom={12.3}
-			autoloadGlobalCss={false}
-			attributionControl={{ compact: true }}
-			cursor={dropping ? 'crosshair' : undefined}
-			onclick={onMapClick}
-		>
-			<NavigationControl position="top-right" showCompass={false} />
-
-			{#if area.data}
-				<GeoJSONSource id="area" data={area.data}>
-					<FillLayer paint={{ 'fill-color': theme.colors.primary, 'fill-opacity': 0.07 }} />
-					<LineLayer paint={{ 'line-color': theme.colors.primary, 'line-width': 1.5, 'line-dasharray': [3, 2] }} />
+		<!-- Created once the colour mode is known, so it does not load the light style and then swap. -->
+		{#if theme.ready}
+			<MapLibre
+				bind:map
+				class="h-full w-full"
+				style={theme.style}
+				bind:center
+				zoom={12.3}
+				autoloadGlobalCss={false}
+				attributionControl={{ compact: true }}
+				cursor={dropping ? 'crosshair' : undefined}
+				onclick={onMapClick}
+				onstyledataloading={() => (styleReady = false)}
+				onidle={() => (styleReady = true)}
+				onstyleimagemissing={(event) => event.id === LODGING && addLodgingIcon(event.target)}
+			>
+				<NavigationControl position="top-right" showCompass={false} />
+	
+				{#if area.data}
+					<GeoJSONSource id="area" data={area.data}>
+						<FillLayer paint={{ 'fill-color': theme.colors.primary, 'fill-opacity': 0.07 }} />
+						<LineLayer paint={{ 'line-color': theme.colors.primary, 'line-width': 1.5, 'line-dasharray': [3, 2] }} />
+					</GeoJSONSource>
+				{/if}
+	
+				<!-- Every live pin feeds the heatmap. Each counts once; overlap is what makes it hot. -->
+				<GeoJSONSource id="pins" data={pinData} promoteId="id">
+					<HeatmapLayer
+						layout={visibility('heat')}
+						paint={{
+							'heatmap-weight': 1,
+							'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 10, 0.15, 13, 0.3, 16, 0.8],
+							'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 10, 10, 13, 20, 16, 40],
+							'heatmap-color': heatColor,
+							'heatmap-opacity': 0.9
+						}}
+					/>
 				</GeoJSONSource>
-			{/if}
-
-			<!-- Every live pin feeds the heatmap. Each counts once; overlap is what makes it hot. -->
-			<GeoJSONSource id="pins" data={pinData} promoteId="id">
-				<HeatmapLayer
-					layout={visibility('heat')}
-					paint={{
-						'heatmap-weight': 1,
-						'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 10, 0.15, 13, 0.3, 16, 0.8],
-						'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 10, 10, 13, 20, 16, 40],
-						'heatmap-color': heatColor,
-						'heatmap-opacity': 0.9
-					}}
-				/>
-			</GeoJSONSource>
-
-			<!-- New pings pulse: an ink ring that grows and fades over four seconds. -->
-			<GeoJSONSource id="fresh-pins" data={freshData}>
-				<CircleLayer
-					layout={visibility('heat')}
-					paint={{
-						'circle-radius': ['interpolate', ['linear'], ['get', 'age'], 0, 3, 1, 14],
-						'circle-color': theme.colors.foreground,
-						'circle-opacity': ['interpolate', ['linear'], ['get', 'age'], 0, 0.8, 0.3, 0.2, 1, 0],
-						'circle-stroke-color': theme.colors.foreground,
-						'circle-stroke-width': 1.5,
-						'circle-stroke-opacity': ['interpolate', ['linear'], ['get', 'age'], 0, 1, 1, 0]
-					}}
-				/>
-			</GeoJSONSource>
-
-			<!-- Stays: round pink markers with a bed, above the heatmap. -->
-			{#if properties.data}
-				<GeoJSONSource id="properties" data={properties.data} promoteId="id">
-					<!-- Not "lodging": the basemap sprite already has an icon by that name. -->
-					{#await lodgingIcon then icon}
-						<Image id="stayspot-lodging" image={icon} options={{ pixelRatio: iconRatio }} />
+	
+				<!-- New pings pulse: an ink ring that grows and fades over four seconds. -->
+				<GeoJSONSource id="fresh-pins" data={freshData}>
+					<CircleLayer
+						layout={visibility('heat')}
+						paint={{
+							'circle-radius': ['interpolate', ['linear'], ['get', 'age'], 0, 3, 1, 14],
+							'circle-color': theme.colors.foreground,
+							'circle-opacity': ['interpolate', ['linear'], ['get', 'age'], 0, 0.8, 0.3, 0.2, 1, 0],
+							'circle-stroke-color': theme.colors.foreground,
+							'circle-stroke-width': 1.5,
+							'circle-stroke-opacity': ['interpolate', ['linear'], ['get', 'age'], 0, 1, 1, 0]
+						}}
+					/>
+				</GeoJSONSource>
+	
+				<!-- Stays: round pink markers with a bed, above the heatmap. -->
+				{#if properties.data}
+					<GeoJSONSource id="properties" data={properties.data} promoteId="id">
 						<SymbolLayer
 							layout={{
 								...visibility('properties'),
-								'icon-image': 'stayspot-lodging',
+								'icon-image': LODGING,
 								'icon-size': ['interpolate', ['linear'], ['zoom'], 10, 0.55, 13, 0.85, 16, 1],
 								'icon-allow-overlap': true,
 								'icon-ignore-placement': true
 							}}
 						/>
-					{/await}
-				</GeoJSONSource>
-			{/if}
-
-			<!-- The $geoNear hotspots stay invisible until one is hovered here or in the list, then show as a ring. -->
-			{#if hotspots.data}
-				<GeoJSONSource id="hotspots" data={hotspots.data}>
-					<CircleLayer
-						paint={{
-							'circle-radius': ['interpolate', ['linear'], ['get', 'search_volume'], 1, 10, 10, 16, 40, 26, 150, 34],
-							'circle-color': theme.colors.foreground,
-							'circle-opacity': 0,
-							'circle-stroke-color': theme.colors.foreground,
-							'circle-stroke-width': 2,
-							'circle-stroke-opacity': ['case', ['boolean', ['feature-state', 'hover'], false], 1, 0]
-						}}
-						onmousemove={(event) => {
-							const id = event.features?.[0]?.id;
-							hovered = typeof id === 'number' ? id : null;
-						}}
-						onmouseleave={() => (hovered = null)}
-					/>
-					{#if hovered !== null}
-						<FeatureState id={hovered} state={{ hover: true }} />
-					{/if}
-				</GeoJSONSource>
-			{/if}
-
-			<Marker lnglat={[lng, lat]} color={theme.colors.primary} />
-		</MapLibre>
+					</GeoJSONSource>
+				{/if}
+	
+				<!-- The $geoNear hotspots stay invisible until one is hovered here or in the list, then show as a ring. -->
+				{#if hotspots.data}
+					<GeoJSONSource id="hotspots" data={hotspots.data}>
+						<CircleLayer
+							paint={{
+								'circle-radius': ['interpolate', ['linear'], ['get', 'search_volume'], 1, 10, 10, 16, 40, 26, 150, 34],
+								'circle-color': theme.colors.foreground,
+								'circle-opacity': 0,
+								'circle-stroke-color': theme.colors.foreground,
+								'circle-stroke-width': 2,
+								'circle-stroke-opacity': ['case', ['boolean', ['feature-state', 'hover'], false], 1, 0]
+							}}
+							onmousemove={(event) => {
+								const id = event.features?.[0]?.id;
+								hovered = typeof id === 'number' ? id : null;
+							}}
+							onmouseleave={() => (hovered = null)}
+						/>
+					</GeoJSONSource>
+				{/if}
+	
+				<Marker lnglat={[lng, lat]} color={theme.colors.primary} />
+			</MapLibre>
+		{/if}
 
 		<!-- Controls over the map -->
 		<div class="pointer-events-none absolute inset-x-3 top-3 flex flex-wrap items-start gap-2 pr-12">
@@ -410,7 +435,8 @@
 			</p>
 		</div>
 
-		{#if empty}
+		<!-- Hidden while dropping, so the click reaches the map. -->
+		{#if empty && !dropping}
 			<div class="absolute inset-0 grid place-items-center bg-black/10 p-4">
 				<Card.Root class="max-w-md" elevated>
 					<Card.Header>

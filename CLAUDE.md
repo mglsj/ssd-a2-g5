@@ -8,7 +8,7 @@ The briefs are `assignment 1.pdf` and `assignment 2.pdf` at the repo root. Extra
 ## Layout rules
 
 - The Assignment 1 folders keep exactly their required files. Do not add files to `sql/`, `mongo/` or `performance/`. `data_generation/` may only add the uv project files (`pyproject.toml`, `uv.lock`) and `data.py`.
-- Assignment 2 adds `api/`, `web/`, `docs/api_endpoints.md` and `docs/design/`. Helper scripts go in `scripts/`.
+- Assignment 2 adds `api/`, `web/`, `docs/api_endpoints.md` and `docs/design/` (screens, wireframes, the UI plan and the README screenshots). Helper scripts go in `scripts/`.
 - There is no `<team>_a1b/` top folder. A zip script adds it at submission time.
 - The root `README.md` is the Assignment 2 README. The original Assignment 1 README is `docs/README_a1.md`.
 - Every change to inherited code must be recorded in `docs/handover_note.md` (Assignment 2 requires it).
@@ -24,6 +24,20 @@ uv run --project data_generation python data_generation/mongo_seeder.py --sessio
 cd api && bun run dev                    # API on :3000, docs at /api/docs
 cd api && bun run typecheck && bun test  # tests hit the seeded databases and add a few rows
 ```
+
+On the Windows host, for `web/` (the API must be up in the container):
+
+```bash
+cd web && bun run dev        # :5173, the "web" launch config; /api/* is proxied to API_URL
+cd web && bun run check      # svelte-check, must stay at 0 errors and 0 warnings
+cd web && bun run build      # then API_URL=http://localhost:3000 PORT=4173 PROTOCOL_HEADER=x-forwarded-proto bun ./build ("web-build" launch config)
+cd web && bun run test:e2e   # Playwright in web/tests, against :5173 (WEB_URL changes it); books a stay and tops up a wallet each run
+bash scripts/screenshots.sh  # rewrites docs/design/screenshots for the README
+```
+
+- `api/node_modules` was installed from Windows, so `bun run typecheck` fails in the container (no Linux TypeScript binary). Run the API typecheck on the host and `bun test` in the container.
+- `bun --hot` in the container does not see edits made from Windows. After changing `api/`, kill and restart `bun run dev`.
+- Playwright uses the `msedge` channel because Edge ships with Windows. `PW_CHANNEL=chromium` needs `bunx playwright install chromium` first.
 
 ## API
 
@@ -91,6 +105,18 @@ The `mongodb-*` skills say to use the MongoDB MCP server when one is available. 
 - Use semantic tokens (`bg-primary`, `text-link`, `text-muted-foreground`). Blue is for actions and links only. `chart-1` … `chart-5` passed the dataviz validator in both modes, so keep their order.
 - Import `cn` and `tv` from `#lib/utils.js`, never straight from `cn` or `tailwind-variants`. Both carry a merge config for the custom type scale. Without it they drop `text-heading-3` when a colour class sits next to it.
 - `web/node_modules` holds Windows binaries, so run `bun` commands in `web/` on the host, not in the container.
+- `web/src/lib/` layout: `api/` (typed client, `unwrap()`, `ApiError`, query keys and options in `queries.ts`), `state/actor.svelte.ts` (role and guest, in localStorage), `components/{app,data,states,catalog,reviews,map}`, `features/<screen>/`, `format.ts` (money in paise, `Intl` dates), `url.ts` (`setParams` and typed param readers), `motion.svelte.ts` (reduced motion). Filters, sort, page and tabs live in the URL.
+- Wrap every query-driven region in `QueryBoundary` (loading, empty, error). Errors show `ApiError.message` as is; `errorInfo` in `api/errors.ts` maps each `code` to a title and next step.
+- SvelteKit 3 changed some APIs: environment variables are declared in `src/env.ts` with `defineEnvVars` and read from `$app/env/private`, `Handle` comes from `@sveltejs/kit/hooks`, `browser` from `$app/env`, and `goto` takes `{ replace, reset: false }`.
+- Tailwind in the dev server does not pick up `.svelte` files created after it started. Restart the dev server after adding files, or new classes look missing.
+- MapLibre:
+  - The worker is set in `lib/map/worker.ts` (`?worker&url`), because the pre-bundler cannot load `svelte-maplibre-gl/vite` on Windows. Import it on every page with a map.
+  - `MapTheme` reads colour tokens at runtime, because MapLibre paint needs real colours. Render the map only once `theme.ready` is true, so it does not start on the light style and swap.
+  - Never wrap `<MapLibre bind:map>` in `{#key}`. The new instance sees the old bound map and never creates one. A `style` change swaps the basemap in place and keeps our layers.
+  - MapLibre throws on feature state while a style loads. Set feature state and add images only when the style is ready (see the hover effect and `addLodgingIcon` in `routes/map/+page.svelte`), not with `<FeatureState>` or `<Image>`.
+  - Name custom images with a `stayspot-` prefix. The basemap sprite already has `lodging` and others.
+  - `--map-lodging` and `--map-lodging-foreground` in `layout.css` colour the pink property markers.
+- Card titles are level-2 headings (`role="heading"` in the generated `shadcn/card/card-title.svelte`), so sections inside cards use `h3`. `EmptyState` takes `level` when it is the whole page.
 
 MCP servers in `.mcp.json`:
 

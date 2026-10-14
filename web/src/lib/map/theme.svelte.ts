@@ -30,6 +30,8 @@ function token(name: string): string {
  * Use inside components: `const theme = new MapTheme()`.
  */
 export class MapTheme {
+	/** False until mode-watcher has read the stored mode. Create the map after this, so it starts on the right style. */
+	readonly ready = $derived(mode.current !== undefined);
 	readonly isDark = $derived(mode.current === 'dark');
 	readonly style = $derived(this.isDark ? basemap.dark : basemap.light);
 	readonly colors = $derived.by(() => {

@@ -14,6 +14,17 @@
         "--strictPort"
       ],
       "port": 5173
+    },
+    {
+      "name": "web-build",
+      "runtimeExecutable": "bun",
+      "runtimeArgs": ["--cwd=web", "./build"],
+      "env": {
+        "PORT": "4173",
+        "PROTOCOL_HEADER": "x-forwarded-proto",
+        "API_URL": "http://localhost:3000"
+      },
+      "port": 4173
     }
   ]
 }

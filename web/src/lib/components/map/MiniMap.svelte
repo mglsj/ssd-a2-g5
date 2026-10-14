@@ -29,8 +29,8 @@
 	{#if !loaded}
 		<Skeleton class="absolute inset-0 rounded-none" />
 	{/if}
-	<!-- The key remounts the map when the basemap switches between light and dark. -->
-	{#key theme.style}
+	<!-- Created once the colour mode is known. A later switch swaps the style in place. -->
+	{#if theme.ready}
 		<MapLibre
 			class="h-full w-full"
 			style={theme.style}
@@ -52,5 +52,5 @@
 			{/if}
 			<Marker lnglat={[lng, lat]} color={theme.colors.primary} />
 		</MapLibre>
-	{/key}
+	{/if}
 </div>
