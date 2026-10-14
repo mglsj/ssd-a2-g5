@@ -12,6 +12,7 @@ export type PropertyListQuery = QueryOf<typeof api.properties.$get>;
 export type BookingListQuery = QueryOf<typeof api.bookings.$get>;
 export type ReviewListQuery = QueryOf<typeof api.reviews.$get>;
 export type AreaQuery = QueryOf<typeof api.map.area.$get>;
+export type AuditQuery = QueryOf<(typeof api.guests)[':id']['audit']['$get']>;
 
 export type GuestDetail = Success<Awaited<ReturnType<(typeof api.guests)[':id']['$get']>>>;
 export type PropertyDetail = Success<Awaited<ReturnType<(typeof api.properties)[':id']['$get']>>>;
@@ -19,6 +20,10 @@ export type Amenities = Success<Awaited<ReturnType<(typeof api.properties)[':id'
 export type Booking = Success<Awaited<ReturnType<(typeof api.bookings)[':id']['$get']>>>;
 export type ReviewFacets = Success<Awaited<ReturnType<typeof api.reviews.analytics.$get>>>;
 export type Review = Success<Awaited<ReturnType<typeof api.reviews.$get>>>['items'][number];
+export type AuditPage = Success<Awaited<ReturnType<(typeof api.guests)[':id']['audit']['$get']>>>;
+export type AuditEntry = NonNullable<GuestDetail['latest_audit']>;
+export type BookingResult = Success<Awaited<ReturnType<typeof api.bookings.$post>>>;
+export type TopUpResult = Success<Awaited<ReturnType<(typeof api.guests)[':id']['top-up']['$post']>>>;
 
 type Status = 'ok' | 'down';
 export type Health = { api: Status; postgres: Status; mongo: Status };
@@ -35,7 +40,8 @@ export const keys = {
 	guests: {
 		all: ['guests'] as const,
 		list: (query: GuestListQuery) => ['guests', 'list', query] as const,
-		detail: (id: string) => ['guests', 'detail', id] as const
+		detail: (id: string) => ['guests', 'detail', id] as const,
+		audit: (id: string, query: AuditQuery) => ['guests', 'audit', id, query] as const
 	},
 	properties: {
 		all: ['properties'] as const,
@@ -91,6 +97,12 @@ export const queries = {
 			queryOptions({
 				queryKey: keys.guests.detail(id),
 				queryFn: ({ signal }) => unwrap(api.guests[':id'].$get({ param: { id } }, init(signal)))
+			}),
+		audit: (id: string, query: AuditQuery) =>
+			queryOptions({
+				queryKey: keys.guests.audit(id, query),
+				queryFn: ({ signal }) => unwrap(api.guests[':id'].audit.$get({ param: { id }, query }, init(signal))),
+				placeholderData: keepPreviousData
 			})
 	},
 
@@ -153,4 +165,10 @@ export const queries = {
 				staleTime: Infinity
 			})
 	}
+};
+
+// Writes. Each returns the API's body, or throws an ApiError the screen shows by its code.
+export const mutations = {
+	book: (body: { guest_id: string; property_id: string; nights: number }) => unwrap(api.bookings.$post({ json: body })),
+	topUp: (id: string, amount: string) => unwrap(api.guests[':id']['top-up'].$post({ param: { id }, json: { amount } }))
 };

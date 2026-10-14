@@ -19,6 +19,7 @@
 	import ErrorState from '#lib/components/states/ErrorState.svelte';
 	import QueryBoundary from '#lib/components/states/QueryBoundary.svelte';
 	import BookingsTable from '#lib/features/bookings/BookingsTable.svelte';
+	import ActionBadge from '#lib/features/wallet/ActionBadge.svelte';
 	import { toApiError } from '#lib/api/errors.js';
 	import { PAGE_SIZE, queries } from '#lib/api/queries.js';
 	import { dateTime, statusLabel, type BookingStatus } from '#lib/format.js';
@@ -97,9 +98,7 @@
 				{#if g.latest_audit}
 					<p class="text-muted-foreground">Latest wallet change</p>
 					<p class="flex flex-wrap items-center gap-2">
-						<Badge variant={g.latest_audit.action_type === 'CREDIT' ? 'success' : 'secondary'}>
-							{g.latest_audit.action_type === 'CREDIT' ? 'Credit' : 'Debit'}
-						</Badge>
+						<ActionBadge action={g.latest_audit.action_type} />
 						<Money
 							value={g.latest_audit.action_type === 'CREDIT' ? g.latest_audit.amount_changed : `-${g.latest_audit.amount_changed}`}
 							signed

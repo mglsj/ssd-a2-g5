@@ -15,6 +15,16 @@ export function rupees(value: string | number, { whole = false } = {}): string {
 	return (whole ? rupeeWholeFormat : rupeeFormat).format(amount);
 }
 
+/** A two-decimal money string as whole paise, so sums and products stay exact. */
+export function toPaise(value: string): number {
+	return Math.round(Number(value) * 100);
+}
+
+/** Whole paise back to a two-decimal string, the API's money format. */
+export function fromPaise(paise: number): string {
+	return (paise / 100).toFixed(2);
+}
+
 export function count(value: number): string {
 	return numberFormat.format(value);
 }
