@@ -25,7 +25,7 @@
 {#if query.isPending}
 	{#if loading}
 		<div role="status" aria-live="polite" class="contents">
-			<span class="sr-only">Loading</span>
+			<span class="sr-only">Loading…</span>
 			{@render loading()}
 		</div>
 	{:else}

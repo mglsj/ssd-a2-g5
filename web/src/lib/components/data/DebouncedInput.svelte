@@ -66,6 +66,8 @@
 		{/if}
 		<InputGroup.Input
 			{id}
+			name={id}
+			autocomplete="off"
 			value={text}
 			oninput={(event) => input(event.currentTarget.value)}
 			onkeydown={(event) => event.key === 'Enter' && commit()}

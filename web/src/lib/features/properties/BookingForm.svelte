@@ -110,6 +110,8 @@
 						</InputGroup.Addon>
 						<InputGroup.Input
 							id="nights"
+							name="nights"
+							autocomplete="off"
 							inputmode="numeric"
 							class="text-center tabular-nums"
 							value={nightsText}

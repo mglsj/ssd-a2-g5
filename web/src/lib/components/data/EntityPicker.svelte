@@ -109,7 +109,7 @@
 			<Popover.Content class="w-(--bits-popover-anchor-width) min-w-72 p-0" align="start">
 				<Command.Root shouldFilter={false} label="Choose a {noun}">
 					<Command.Input
-						placeholder="Search {kind === 'guest' ? 'guests by name' : 'properties by title'}"
+						placeholder="Search {kind === 'guest' ? 'guests by name' : 'properties by title'}…"
 						aria-label="Search {kind === 'guest' ? 'guests by name' : 'properties by title'}"
 						value={search}
 						oninput={(event) => onSearch(event.currentTarget.value)}
@@ -118,7 +118,7 @@
 						{#if results.isPending}
 							<Command.Loading>
 								<div class="text-muted-foreground flex items-center gap-2 px-2 py-3 text-sm">
-									<Spinner /> Searching
+									<Spinner /> Searching…
 								</div>
 							</Command.Loading>
 						{:else if results.isError}

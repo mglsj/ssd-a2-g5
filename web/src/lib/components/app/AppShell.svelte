@@ -138,7 +138,7 @@
 					</Button>
 				{/snippet}
 			</Sheet.Trigger>
-			<Sheet.Content side="left" class="w-80 max-w-[85vw]">
+			<Sheet.Content side="left" class="w-80 max-w-[85vw] overscroll-contain">
 				<Sheet.Header>
 					<Sheet.Title>StaySpot</Sheet.Title>
 					<Sheet.Description>

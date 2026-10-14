@@ -98,7 +98,7 @@
 		id="property-search"
 		label="Search"
 		search
-		placeholder="Search titles"
+		placeholder="Search titles, e.g. Taj…"
 		value={q}
 		onchange={(value) => setParams({ q: value })}
 		class="w-full sm:w-72"

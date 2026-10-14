@@ -15,7 +15,7 @@
 </script>
 
 <Dialog.Root bind:open>
-	<Dialog.Content class="sm:max-w-md">
+	<Dialog.Content class="overscroll-contain sm:max-w-md">
 		<!-- Mounted per opening, so the form always starts fresh. -->
 		<TopUpForm {guestId} {guestName} {initialAmount} {ondone} onclose={() => (open = false)} />
 	</Dialog.Content>

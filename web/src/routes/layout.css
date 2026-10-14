@@ -253,6 +253,14 @@
 	html {
 		@apply font-sans;
 		font-feature-settings: "lnum", "locl";
+		color-scheme: light;
+		/* No double-tap zoom delay, and a quiet tint instead of the grey tap flash. */
+		touch-action: manipulation;
+		-webkit-tap-highlight-color: color-mix(in oklab, var(--primary) 15%, transparent);
+	}
+	/* Native scrollbars, date pickers and form controls follow the dark theme. */
+	html.dark {
+		color-scheme: dark;
 	}
 	body {
 		@apply bg-background text-foreground text-body-md antialiased;

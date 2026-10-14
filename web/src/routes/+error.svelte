@@ -15,6 +15,7 @@
 
 <EmptyState
 	class="my-8"
+	level={1}
 	icon={notFound ? SearchXIcon : CircleAlertIcon}
 	title={notFound ? 'Page not found' : 'Something went wrong'}
 	description={notFound

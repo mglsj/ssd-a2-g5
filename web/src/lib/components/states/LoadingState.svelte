@@ -9,7 +9,7 @@
 		class?: string;
 	};
 
-	let { rows = 3, label = 'Loading', class: className }: Props = $props();
+	let { rows = 3, label = 'Loading…', class: className }: Props = $props();
 </script>
 
 <div class={cn('flex flex-col gap-3', className)} role="status" aria-live="polite">

@@ -112,6 +112,7 @@
 					<InputGroup.Addon><InputGroup.Text>₹</InputGroup.Text></InputGroup.Addon>
 					<InputGroup.Input
 						id="top-up-amount"
+						name="amount"
 						inputmode="decimal"
 						autocomplete="off"
 						placeholder="0.00"

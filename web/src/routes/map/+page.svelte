@@ -42,6 +42,7 @@
 	import { createLodgingIcon } from '#lib/map/lodging-icon.js';
 	import { IIIT, MapTheme, rgba } from '#lib/map/theme.svelte.js';
 	import { Clock } from '#lib/clock.svelte.js';
+	import { motionMs, reducedMotion } from '#lib/motion.svelte.js';
 	import { getActor } from '#lib/state/actor.svelte.js';
 	import { setParams, stringParam } from '#lib/url.js';
 
@@ -88,7 +89,8 @@
 				.filter((pin) => live.arrived.has(String(pin.id)) && now - live.arrived.get(String(pin.id))! < FRESH_MS)
 				.map((pin) => ({
 					...pin,
-					properties: { ...pin.properties, age: (now - live.arrived.get(String(pin.id))!) / FRESH_MS }
+					// With reduced motion the ring holds still at a mid age, then disappears.
+					properties: { ...pin.properties, age: reducedMotion.current ? 0.2 : (now - live.arrived.get(String(pin.id))!) / FRESH_MS }
 				}))
 		};
 	});
@@ -119,7 +121,7 @@
 
 	// Pan smoothly to a new origin (a map click, the picker or the Back button), keeping the zoom.
 	$effect(() => {
-		map?.easeTo({ center: [lng, lat], duration: 1000 });
+		map?.easeTo({ center: [lng, lat], duration: motionMs(1000) });
 	});
 
 	const drop = createMutation(() => ({
@@ -148,14 +150,14 @@
 
 	function select(hotspot: Hotspot) {
 		const [x, y] = hotspot.geometry.coordinates;
-		map?.flyTo({ center: [x, y], zoom: 14, duration: 500 });
+		map?.flyTo({ center: [x, y], zoom: 14, duration: motionMs(500) });
 		panelOpen = false;
 	}
 
 	const updatedText = $derived.by(() => {
 		if (live.paused) return 'Paused while the tab is hidden';
 		if (live.error) return 'Live updates failed, retrying';
-		if (live.updatedAt === null) return 'Connecting';
+		if (live.updatedAt === null) return 'Connecting…';
 		const seconds = Math.max(0, Math.round((clock.now - live.updatedAt) / 1000));
 		return `Live · updated ${seconds} s ago`;
 	});
@@ -392,7 +394,7 @@
 							</Button>
 						{/snippet}
 					</Sheet.Trigger>
-					<Sheet.Content side="bottom" class="max-h-[75dvh] overflow-y-auto">
+					<Sheet.Content side="bottom" class="max-h-[75dvh] overflow-y-auto overscroll-contain">
 						<Sheet.Header class="sr-only">
 							<Sheet.Title>Hotspots</Sheet.Title>
 							<Sheet.Description>Search hotspots around {originLabel}</Sheet.Description>

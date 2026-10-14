@@ -9,11 +9,13 @@
 		description?: string;
 		icon?: Component;
 		class?: string;
+		/** Makes the title a heading, for example 1 when the empty state is the whole page. */
+		level?: number;
 		/** The next step, usually a button or link. */
 		children?: Snippet;
 	};
 
-	let { title, description, icon: Icon = InboxIcon, class: className, children }: Props = $props();
+	let { title, description, icon: Icon = InboxIcon, level, class: className, children }: Props = $props();
 </script>
 
 <Empty.Root class={cn('bg-muted/60 border border-dashed', className)}>
@@ -21,7 +23,7 @@
 		<Empty.Media variant="icon">
 			<Icon />
 		</Empty.Media>
-		<Empty.Title>{title}</Empty.Title>
+		<Empty.Title role={level ? 'heading' : undefined} aria-level={level}>{title}</Empty.Title>
 		{#if description}
 			<Empty.Description>{description}</Empty.Description>
 		{/if}

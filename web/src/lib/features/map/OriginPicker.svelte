@@ -56,7 +56,7 @@
 	<Popover.Content class="w-80 p-0" align="start">
 		<Command.Root shouldFilter={false} label="Choose the search origin">
 			<Command.Input
-				placeholder="Search a property"
+				placeholder="Search a property…"
 				aria-label="Search a property to use as the origin"
 				value={search}
 				oninput={(event) => onSearch(event.currentTarget.value)}
@@ -72,7 +72,7 @@
 					<Command.Group heading="Properties">
 						{#if results.isPending}
 							<Command.Loading>
-								<div class="text-muted-foreground flex items-center gap-2 px-2 py-3 text-sm"><Spinner /> Searching</div>
+								<div class="text-muted-foreground flex items-center gap-2 px-2 py-3 text-sm"><Spinner /> Searching…</div>
 							</Command.Loading>
 						{:else if results.isError}
 							<p class="text-destructive px-2 py-3 text-sm">{toApiError(results.error).message}</p>

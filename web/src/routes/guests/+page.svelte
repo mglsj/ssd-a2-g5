@@ -81,7 +81,7 @@
 		id="guest-search"
 		label="Search"
 		search
-		placeholder="Search by name"
+		placeholder="Search by name, e.g. Ray…"
 		value={q}
 		onchange={(value) => setParams({ q: value })}
 		class="w-full sm:w-72"

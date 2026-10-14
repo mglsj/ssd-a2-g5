@@ -92,7 +92,7 @@
 	<Popover.Content class="w-80 p-0" align="end">
 		<Command.Root shouldFilter={false} label="Pick a guest">
 			<Command.Input
-				placeholder="Search guests by name"
+				placeholder="Search guests by name…"
 				value={search}
 				oninput={(event) => onSearch(event.currentTarget.value)}
 				aria-label="Search guests by name"
@@ -121,7 +121,7 @@
 					{#if results.isPending}
 						<Command.Loading>
 							<div class="text-muted-foreground flex items-center gap-2 px-2 py-3 text-sm">
-								<Spinner /> Searching guests
+								<Spinner /> Searching guests…
 							</div>
 						</Command.Loading>
 					{:else if results.isError}

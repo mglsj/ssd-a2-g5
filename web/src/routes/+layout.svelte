@@ -41,7 +41,8 @@
 	});
 </script>
 
-<ModeWatcher defaultMode="light" />
+<!-- theme-color matches --background in layout.css, so the browser bar blends with the page. -->
+<ModeWatcher defaultMode="light" themeColors={{ light: '#f6f5f4', dark: '#191918' }} />
 <Toaster position="bottom-right" />
 
 <QueryClientProvider client={queryClient}>
