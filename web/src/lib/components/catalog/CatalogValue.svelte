@@ -1,7 +1,12 @@
 <script lang="ts" module>
 	/** "house_rules" -> "House rules", "noise_policy" -> "Noise policy". */
 	export function humanize(key: string): string {
-		const words = key.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/[_-]+/g, ' ').trim().toLowerCase();
+		const words = key
+			.replace(/([a-z])([A-Z])/g, '$1 $2')
+			.replace(/[_-]+/g, ' ')
+			.trim()
+			.toLowerCase()
+			.replace(/\b(it|ac|tv|wifi|cctv)\b/g, (word) => (word === 'wifi' ? 'WiFi' : word.toUpperCase()));
 		return words.charAt(0).toUpperCase() + words.slice(1);
 	}
 
