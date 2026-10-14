@@ -4,6 +4,8 @@ import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
+	// The typed client lives in ../api. Resolve its hono import from web's node_modules.
+	resolve: { dedupe: ['hono'] },
 	plugins: [
 		tailwindcss(),
 		sveltekit({

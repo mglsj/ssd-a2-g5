@@ -13,8 +13,8 @@ export async function listGuests(query: GuestListQuery): Promise<Paged<Guest>> {
   `;
   const order = {
     name: sql`name, id`,
-    balance_desc: sql`wallet_balance DESC, id`,
-    balance_asc: sql`wallet_balance, id`,
+    balance_desc: sql`g.wallet_balance DESC, g.id`,
+    balance_asc: sql`g.wallet_balance, g.id`,
   }[query.sort];
   const [[count], items] = await Promise.all([
     sql`SELECT count(*)::int AS total FROM guests g WHERE ${where()}`,

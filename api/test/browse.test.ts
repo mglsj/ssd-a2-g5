@@ -17,6 +17,14 @@ describe("guest switcher filters for the demo", () => {
     const balances = body.items.map((g: Json) => Number(g.wallet_balance));
     expect(balances).toEqual([...balances].sort((a, b) => a - b));
   });
+
+  test("balance sorts compare numbers, not text", async () => {
+    // A text sort puts "100023.75" before "12.27" and "99965.73" before "402305.88".
+    const poorest = Number((await call("GET", "/guests?sort=balance_asc&limit=1")).body.items[0].wallet_balance);
+    const richest = Number((await call("GET", "/guests?sort=balance_desc&limit=1")).body.items[0].wallet_balance);
+    const sample = (await call("GET", "/guests?limit=100")).body.items.map((g: Json) => Number(g.wallet_balance));
+    expect(sample.every((b: number) => poorest <= b && b <= richest)).toBe(true);
+  });
 });
 
 describe("properties near a point", () => {
@@ -44,6 +52,12 @@ describe("analytics defaults", () => {
     expect(body.series.map((s: Json) => s.property_id)).toEqual(rank.items.slice(0, 5).map((r: Json) => r.property_id));
     expect(body.series[0].points).toHaveLength(90);
     expect(body.series[0].points.at(-1).day).toBe(body.to);
+  });
+
+  test("the summary sorts revenue as a number", async () => {
+    const top = Number((await call("GET", "/analytics/summary?sort=gross_revenue&limit=1")).body.items[0].gross_revenue);
+    const sample = (await call("GET", "/analytics/summary?sort=title&limit=100")).body.items;
+    expect(sample.every((p: Json) => Number(p.gross_revenue) <= top)).toBe(true);
   });
 
   test("a range over 366 days is rejected", async () => {

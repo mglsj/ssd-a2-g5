@@ -45,7 +45,7 @@ export async function findRanking(query: RankQuery): Promise<Ranking> {
 
 export async function findSummary(query: SummaryQuery): Promise<SummaryPage> {
   const order = {
-    gross_revenue: sql`gross_revenue DESC, property_id`,
+    gross_revenue: sql`mv_property_summary.gross_revenue DESC, property_id`,
     completed_bookings: sql`completed_bookings DESC, property_id`,
     total_nights_booked: sql`total_nights_booked DESC, property_id`,
     title: sql`title, property_id`,
