@@ -1,83 +1,134 @@
 @import 'tailwindcss';
 @import "tw-animate-css";
 @import "shadcn-svelte/tailwind.css";
-@import "@fontsource-variable/noto-sans";
+@import "@fontsource-variable/inter/opsz.css";
 
 @custom-variant dark (&:is(.dark *));
 @plugin '@tailwindcss/forms';
 @plugin '@tailwindcss/typography';
 
+/*
+ * Theme from DESIGN.md: a warm paper canvas, near-black Inter type, and one
+ * structural blue. The sticker palette is decoration only, apart from charts.
+ * Text pairs were checked for WCAG AA and the chart palettes with the dataviz
+ * validator, in both modes.
+ */
 :root {
-	--background: oklch(1 0 0);
-	--foreground: oklch(0.145 0 0);
-	--card: oklch(1 0 0);
-	--card-foreground: oklch(0.145 0 0);
-	--popover: oklch(1 0 0);
-	--popover-foreground: oklch(0.145 0 0);
-	--primary: oklch(0.527 0.154 150.069);
-	--primary-foreground: oklch(0.982 0.018 155.826);
-	--secondary: oklch(0.967 0.001 286.375);
-	--secondary-foreground: oklch(0.21 0.006 285.885);
-	--muted: oklch(0.97 0 0);
-	--muted-foreground: oklch(0.556 0 0);
-	--accent: oklch(0.97 0 0);
-	--accent-foreground: oklch(0.205 0 0);
-	--destructive: oklch(0.577 0.245 27.325);
-	--border: oklch(0.922 0 0);
-	--input: oklch(0.922 0 0);
-	--ring: oklch(0.708 0 0);
-	--chart-1: oklch(0.833 0.145 321.434);
-	--chart-2: oklch(0.667 0.295 322.15);
-	--chart-3: oklch(0.591 0.293 322.896);
-	--chart-4: oklch(0.518 0.253 323.949);
-	--chart-5: oklch(0.452 0.211 324.591);
-	--radius: 0.625rem;
-	--sidebar: oklch(0.985 0 0);
-	--sidebar-foreground: oklch(0.145 0 0);
-	--sidebar-primary: oklch(0.627 0.194 149.214);
-	--sidebar-primary-foreground: oklch(0.982 0.018 155.826);
-	--sidebar-accent: oklch(0.97 0 0);
-	--sidebar-accent-foreground: oklch(0.205 0 0);
-	--sidebar-border: oklch(0.922 0 0);
-	--sidebar-ring: oklch(0.708 0 0);
+	/* Surfaces: warm canvas behind white cards, fields and menus. */
+	--background: #f6f5f4;
+	--foreground: #0c0c0c;
+	--card: #ffffff;
+	--card-foreground: #0c0c0c;
+	--popover: #ffffff;
+	--popover-foreground: #0c0c0c;
+
+	/* Notion blue paints actions, links and focus only. */
+	--primary: #0075de;
+	--primary-active: #005bab;
+	--primary-foreground: #ffffff;
+	--link: #006bcb;
+
+	/* shadcn "secondary" is the white secondary button, not the indigo band. */
+	--secondary: #ffffff;
+	--secondary-foreground: #0c0c0c;
+	--muted: #f6f5f4;
+	--muted-foreground: #615d59;
+	--accent: #efeeec;
+	--accent-foreground: #0c0c0c;
+	--ink-secondary: #31302e;
+	--faint: #a39e98;
+
+	/* The deep indigo "night" band, for one hero moment per page. */
+	--night: #213183;
+	--night-foreground: #ffffff;
+
+	--destructive: #be3618;
+	--success: #17732f;
+
+	--border: #e6e6e6;
+	--input: #dddddd;
+	--ring: #0075de;
+
+	/* Charts: Notion blue first, then the sticker family, in this fixed order. */
+	--chart-1: #0075de;
+	--chart-2: #dd5b00;
+	--chart-3: #00968f;
+	--chart-4: #6f48b8;
+	--chart-5: #e8559f;
+
+	/* Decorative stickers: dots, icon tiles, illustration bands. Never a CTA. */
+	--sticker-sky: #62aef0;
+	--sticker-purple: #d6b6f6;
+	--sticker-pink: #ff64c8;
+	--sticker-orange: #dd5b00;
+	--sticker-teal: #2a9d99;
+	--sticker-green: #1aae39;
+	--sticker-brown: #523410;
+
+	--radius: 12px;
+
+	--sidebar: #ffffff;
+	--sidebar-foreground: #0c0c0c;
+	--sidebar-primary: #0075de;
+	--sidebar-primary-foreground: #ffffff;
+	--sidebar-accent: #f6f5f4;
+	--sidebar-accent-foreground: #0c0c0c;
+	--sidebar-border: #e6e6e6;
+	--sidebar-ring: #0075de;
 }
 
+/* DESIGN.md is light only. Dark mode keeps the same warmth and hierarchy. */
 .dark {
-	--background: oklch(0.145 0 0);
-	--foreground: oklch(0.985 0 0);
-	--card: oklch(0.205 0 0);
-	--card-foreground: oklch(0.985 0 0);
-	--popover: oklch(0.205 0 0);
-	--popover-foreground: oklch(0.985 0 0);
-	--primary: oklch(0.448 0.119 151.328);
-	--primary-foreground: oklch(0.982 0.018 155.826);
-	--secondary: oklch(0.274 0.006 286.033);
-	--secondary-foreground: oklch(0.985 0 0);
-	--muted: oklch(0.269 0 0);
-	--muted-foreground: oklch(0.708 0 0);
-	--accent: oklch(0.269 0 0);
-	--accent-foreground: oklch(0.985 0 0);
-	--destructive: oklch(0.704 0.191 22.216);
-	--border: oklch(1 0 0 / 10%);
-	--input: oklch(1 0 0 / 15%);
-	--ring: oklch(0.556 0 0);
-	--chart-1: oklch(0.833 0.145 321.434);
-	--chart-2: oklch(0.667 0.295 322.15);
-	--chart-3: oklch(0.591 0.293 322.896);
-	--chart-4: oklch(0.518 0.253 323.949);
-	--chart-5: oklch(0.452 0.211 324.591);
-	--sidebar: oklch(0.205 0 0);
-	--sidebar-foreground: oklch(0.985 0 0);
-	--sidebar-primary: oklch(0.723 0.219 149.579);
-	--sidebar-primary-foreground: oklch(0.982 0.018 155.826);
-	--sidebar-accent: oklch(0.269 0 0);
-	--sidebar-accent-foreground: oklch(0.985 0 0);
-	--sidebar-border: oklch(1 0 0 / 10%);
-	--sidebar-ring: oklch(0.556 0 0);
+	--background: #191918;
+	--foreground: #e9e8e6;
+	--card: #202020;
+	--card-foreground: #e9e8e6;
+	--popover: #252525;
+	--popover-foreground: #e9e8e6;
+
+	--primary: #1f6fc4;
+	--primary-active: #185aa1;
+	--primary-foreground: #ffffff;
+	--link: #3b8fe8;
+
+	--secondary: #2a2a29;
+	--secondary-foreground: #e9e8e6;
+	--muted: #252525;
+	--muted-foreground: #9b9a97;
+	--accent: #2f2f2e;
+	--accent-foreground: #e9e8e6;
+	--ink-secondary: #c9c7c3;
+	--faint: #6f6c68;
+
+	--night: #172260;
+	--night-foreground: #ffffff;
+
+	--destructive: #f48a73;
+	--success: #4cc26b;
+
+	--border: #ffffff17;
+	--input: #ffffff24;
+	--ring: #3b8fe8;
+
+	--chart-1: #3b8fe8;
+	--chart-2: #e2701f;
+	--chart-3: #13a49b;
+	--chart-4: #9476de;
+	--chart-5: #df5c9f;
+
+	--sidebar: #202020;
+	--sidebar-foreground: #e9e8e6;
+	--sidebar-primary: #3b8fe8;
+	--sidebar-primary-foreground: #ffffff;
+	--sidebar-accent: #2a2a29;
+	--sidebar-accent-foreground: #e9e8e6;
+	--sidebar-border: #ffffff17;
+	--sidebar-ring: #3b8fe8;
 }
 
 @theme inline {
-	--font-sans: 'Noto Sans Variable', sans-serif;
+	--font-sans: 'Inter Variable', Inter, -apple-system, system-ui, 'Segoe UI', Helvetica, Arial, sans-serif;
+
 	--color-sidebar-ring: var(--sidebar-ring);
 	--color-sidebar-border: var(--sidebar-border);
 	--color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -94,14 +145,21 @@
 	--color-ring: var(--ring);
 	--color-input: var(--input);
 	--color-border: var(--border);
+	--color-success: var(--success);
 	--color-destructive: var(--destructive);
 	--color-accent-foreground: var(--accent-foreground);
 	--color-accent: var(--accent);
+	--color-faint: var(--faint);
+	--color-ink-secondary: var(--ink-secondary);
 	--color-muted-foreground: var(--muted-foreground);
 	--color-muted: var(--muted);
+	--color-night-foreground: var(--night-foreground);
+	--color-night: var(--night);
 	--color-secondary-foreground: var(--secondary-foreground);
 	--color-secondary: var(--secondary);
+	--color-link: var(--link);
 	--color-primary-foreground: var(--primary-foreground);
+	--color-primary-active: var(--primary-active);
 	--color-primary: var(--primary);
 	--color-popover-foreground: var(--popover-foreground);
 	--color-popover: var(--popover);
@@ -109,23 +167,97 @@
 	--color-card: var(--card);
 	--color-foreground: var(--foreground);
 	--color-background: var(--background);
-	--radius-sm: calc(var(--radius) * 0.6);
-	--radius-md: calc(var(--radius) * 0.8);
+	--color-sticker-sky: var(--sticker-sky);
+	--color-sticker-purple: var(--sticker-purple);
+	--color-sticker-pink: var(--sticker-pink);
+	--color-sticker-orange: var(--sticker-orange);
+	--color-sticker-teal: var(--sticker-teal);
+	--color-sticker-green: var(--sticker-green);
+	--color-sticker-brown: var(--sticker-brown);
+
+	/* DESIGN.md radius scale. rounded-lg is the 12px card, rounded-xs the 4px field. */
+	--radius-xs: 4px;
+	--radius-sm: 5px;
+	--radius-md: 8px;
 	--radius-lg: var(--radius);
-	--radius-xl: calc(var(--radius) * 1.4);
-	--radius-2xl: calc(var(--radius) * 1.8);
-	--radius-3xl: calc(var(--radius) * 2.2);
-	--radius-4xl: calc(var(--radius) * 2.6);
+	--radius-xl: 16px;
+	--radius-2xl: 20px;
+	--radius-3xl: 24px;
+	--radius-4xl: 9999px;
+
+	/* Elevation is many near-transparent layers, never a hard cast. */
+	--shadow-xs: none;
+	--shadow-soft:
+		rgba(0, 0, 0, 0.01) 0 0.175px 1.041px, rgba(0, 0, 0, 0.02) 0 0.8px 2.925px,
+		rgba(0, 0, 0, 0.027) 0 2.025px 7.847px, rgba(0, 0, 0, 0.04) 0 4px 18px;
+	--shadow-sm: var(--shadow-soft);
+	--shadow-elevated:
+		rgba(0, 0, 0, 0.01) 0 1px 3px, rgba(0, 0, 0, 0.02) 0 3px 9px, rgba(0, 0, 0, 0.02) 0 7px 18px,
+		rgba(0, 0, 0, 0.035) 0 13px 32px, rgba(0, 0, 0, 0.05) 0 23px 52px;
+	--shadow-md: var(--shadow-elevated);
+	--shadow-lg: var(--shadow-elevated);
+
+	/* DESIGN.md type scale: text-display-1 … text-eyebrow set size, leading, tracking and weight together. */
+	--text-display-1: 64px;
+	--text-display-1--line-height: 1;
+	--text-display-1--letter-spacing: -2.125px;
+	--text-display-1--font-weight: 700;
+	--text-display-2: 54px;
+	--text-display-2--line-height: 1.04;
+	--text-display-2--letter-spacing: -1.875px;
+	--text-display-2--font-weight: 700;
+	--text-heading-1: 40px;
+	--text-heading-1--line-height: 1.1;
+	--text-heading-1--letter-spacing: -1px;
+	--text-heading-1--font-weight: 700;
+	--text-heading-2: 26px;
+	--text-heading-2--line-height: 1.23;
+	--text-heading-2--letter-spacing: -0.625px;
+	--text-heading-2--font-weight: 700;
+	--text-heading-3: 22px;
+	--text-heading-3--line-height: 1.27;
+	--text-heading-3--letter-spacing: -0.25px;
+	--text-heading-3--font-weight: 700;
+	--text-title: 20px;
+	--text-title--line-height: 1.4;
+	--text-title--letter-spacing: -0.125px;
+	--text-title--font-weight: 600;
+	--text-body-md: 16px;
+	--text-body-md--line-height: 1.5;
+	--text-body-sm: 15px;
+	--text-body-sm--line-height: 1.33;
+	--text-button: 16px;
+	--text-button--line-height: 1.5;
+	--text-button--font-weight: 500;
+	--text-caption: 14px;
+	--text-caption--line-height: 1.43;
+	--text-eyebrow: 12px;
+	--text-eyebrow--line-height: 1.33;
+	--text-eyebrow--letter-spacing: 0.125px;
+	--text-eyebrow--font-weight: 600;
 }
 
 @layer base {
 	* {
 		@apply border-border outline-ring/50;
 	}
-	body {
-		@apply bg-background text-foreground;
-	}
 	html {
 		@apply font-sans;
+		font-feature-settings: "lnum", "locl";
+	}
+	body {
+		@apply bg-background text-foreground text-body-md antialiased;
+	}
+	h1 {
+		@apply text-heading-1;
+	}
+	h2 {
+		@apply text-heading-2;
+	}
+	h3 {
+		@apply text-heading-3;
+	}
+	a:not([data-slot]) {
+		@apply text-link underline-offset-4 hover:underline;
 	}
 }

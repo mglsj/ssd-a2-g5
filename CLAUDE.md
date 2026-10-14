@@ -73,15 +73,28 @@ devenv generates `.mcp.json` and `.claude/settings.json` from `claude.code.enabl
 | Skill | Use it for |
 | --- | --- |
 | `postgres` | Postgres query tuning, connection problems and EXPLAIN reading (`sql/`, `performance/`) |
-| `mongodb-query-optimizer` | Index and slow-query help for the Workflow 3 and 4 pipelines (`mongo/`) |
-| `mongodb-schema-design` | Embed versus reference choices, TTL and schema validation (`mongo/`) |
-| `typescript-advanced-types` | Generics and type utilities in `web/` |
+| `mongodb-query-optimizer` | Index and slow-query help for the Workflow 3 and 4 pipelines (`mongo/`). Listed in the lock file but not installed in `.claude/skills/` yet. |
+| `mongodb-schema-design` | Embed versus reference choices, TTL and schema validation (`mongo/`). Same: locked but not installed. |
+| `svelte-code-writer` | Svelte 5 docs lookup and code analysis. Use it for every `.svelte` and `.svelte.ts` edit in `web/`. |
+| `svelte-core-bestpractices` | Runes, events, styling and library integration in `web/` |
+| `shadcn-svelte` | Add, update and compose shadcn-svelte components in `web/` (`components.json`, ui path `#lib/components/shadcn`) |
+| `typescript-advanced-types` | Generics and type utilities in `web/` and `api/` |
 | `tailwind-design-system` | Tailwind v4 tokens and components in `web/` |
 | `web-design-guidelines` | Review UI code for accessibility and UX (`web/`) |
 | `writing-guidelines` | Review prose in `docs/` and `README.md` |
 
 The `mongodb-*` skills say to use the MongoDB MCP server when one is available. None is configured here, so run `mongosh` against `MONGO_URI` instead.
 
-MCP servers:
+`web/` is SvelteKit 3 with Svelte 5, Tailwind v4, shadcn-svelte (style `vega`, Lucide icons) and `svelte-adapter-bun`. Run `bun run check` there for type and Svelte checks.
+
+- The look comes from `DESIGN.md` at the repo root. Its tokens live in `web/src/routes/layout.css` as shadcn variables plus `text-display-1` … `text-eyebrow`, `shadow-soft`, `shadow-elevated` and the `--radius-*` scale. `/design` shows every token and component.
+- Use semantic tokens (`bg-primary`, `text-link`, `text-muted-foreground`). Blue is for actions and links only. `chart-1` … `chart-5` passed the dataviz validator in both modes, so keep their order.
+- Import `cn` and `tv` from `#lib/utils.js`, never straight from `cn` or `tailwind-variants`. Both carry a merge config for the custom type scale. Without it they drop `text-heading-3` when a colour class sits next to it.
+- `web/node_modules` holds Windows binaries, so run `bun` commands in `web/` on the host, not in the container.
+
+MCP servers in `.mcp.json`:
 
 - `mcp.devenv.sh` (HTTP, `https://mcp.devenv.sh`) answers questions about devenv options and `devenv.nix` syntax. Use it before guessing at devenv config.
+- `bun.com` (HTTP, `https://bun.com/docs/mcp`) searches the Bun docs, guides and blog. Use it for `Bun.sql`, `bun test` and Hono-on-Bun questions before guessing.
+
+Not in `.mcp.json`: the trivago connector is attached to the Claude app, not the project. Use its radius search to refresh `data_generation/data.py`. One call returns about 25 hotels, so cover Hyderabad with a grid of points and star-rating filters, then dedupe by name and coordinates.
