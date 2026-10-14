@@ -11,6 +11,8 @@
 	import StatusBadge from '#lib/components/data/StatusBadge.svelte';
 	import EmptyState from '#lib/components/states/EmptyState.svelte';
 	import ErrorState from '#lib/components/states/ErrorState.svelte';
+	import ActiveStayCallout, { type Conflict } from '#lib/features/bookings/ActiveStayCallout.svelte';
+	import StatusAction from '#lib/features/bookings/StatusAction.svelte';
 	import StatusTimeline from '#lib/features/bookings/StatusTimeline.svelte';
 	import { toApiError } from '#lib/api/errors.js';
 	import { queries } from '#lib/api/queries.js';
@@ -18,6 +20,7 @@
 
 	const id = $derived(page.params.id ?? '');
 	const booking = createQuery(() => queries.bookings.detail(id));
+	let conflict = $state<Conflict | null>(null);
 </script>
 
 <svelte:head>
@@ -55,6 +58,11 @@
 		<div><StatusBadge status={b.status} /></div>
 	</PageHeader>
 
+	<!-- The page is reused when "Open that stay" opens another booking, so show it only where it was raised. -->
+	{#if conflict && conflict.attempted.id === id}
+		<ActiveStayCallout {conflict} ondismiss={() => (conflict = null)} />
+	{/if}
+
 	<div class="grid items-start gap-6 md:grid-cols-[minmax(0,1fr)_20rem]">
 		<Card.Root>
 			<Card.Header>
@@ -86,6 +94,21 @@
 			<Card.Content>
 				<StatusTimeline status={b.status} />
 			</Card.Content>
+			{#if b.status !== 'COMPLETED'}
+				<Card.Footer>
+					<StatusAction
+						booking={b}
+						size="default"
+						class="w-full"
+						onconflict={(error, attempted) =>
+							(conflict = {
+								attempted,
+								activeId: typeof error.detail.active_booking_id === 'string' ? error.detail.active_booking_id : null,
+								message: error.message
+							})}
+					/>
+				</Card.Footer>
+			{/if}
 		</Card.Root>
 	</div>
 {/if}

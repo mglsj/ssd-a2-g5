@@ -1,4 +1,5 @@
-import { keepPreviousData, queryOptions } from '@tanstack/svelte-query';
+import { keepPreviousData, queryOptions, type QueryClient } from '@tanstack/svelte-query';
+import type { BookingStatus } from '#lib/format.js';
 import { api, unwrap, type Success } from './client.js';
 
 /** The query-string type a client route accepts. */
@@ -170,5 +171,17 @@ export const queries = {
 // Writes. Each returns the API's body, or throws an ApiError the screen shows by its code.
 export const mutations = {
 	book: (body: { guest_id: string; property_id: string; nights: number }) => unwrap(api.bookings.$post({ json: body })),
-	topUp: (id: string, amount: string) => unwrap(api.guests[':id']['top-up'].$post({ param: { id }, json: { amount } }))
+	topUp: (id: string, amount: string) => unwrap(api.guests[':id']['top-up'].$post({ param: { id }, json: { amount } })),
+	setStatus: (id: string, status: BookingStatus) =>
+		unwrap(api.bookings[':id'].status.$patch({ param: { id }, json: { status } }))
 };
+
+type BookingPage = Success<Awaited<ReturnType<typeof api.bookings.$get>>>;
+
+/** Puts an updated booking into every cached list and its detail, so rows change in place. */
+export function applyBooking(queryClient: QueryClient, booking: Booking) {
+	queryClient.setQueryData(keys.bookings.detail(booking.id), booking);
+	queryClient.setQueriesData<BookingPage>({ queryKey: ['bookings', 'list'] }, (page) =>
+		page ? { ...page, items: page.items.map((item) => (item.id === booking.id ? booking : item)) } : page
+	);
+}
