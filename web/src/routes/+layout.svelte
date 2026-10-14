@@ -1,6 +1,5 @@
 <script lang="ts">
 	import './layout.css';
-	import favicon from '#lib/assets/favicon.svg';
 	import { QueryCache, QueryClient, QueryClientProvider, hashKey } from '@tanstack/svelte-query';
 	import { ModeWatcher } from 'mode-watcher';
 	import { page } from '$app/state';
@@ -41,10 +40,6 @@
 		}
 	});
 </script>
-
-<svelte:head>
-	<link rel="icon" href={favicon} />
-</svelte:head>
 
 <ModeWatcher defaultMode="light" />
 <Toaster position="bottom-right" />

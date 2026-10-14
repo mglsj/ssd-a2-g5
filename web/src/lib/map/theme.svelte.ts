@@ -9,6 +9,17 @@ export const basemap = {
 	dark: 'https://tiles.openfreemap.org/styles/dark'
 } as const;
 
+/**
+ * A hex token as an rgba() string for MapLibre ramps. `shade` below 1 darkens it toward black,
+ * for the deep end of a one-hue ramp.
+ */
+export function rgba(hex: string, alpha: number, shade = 1): string {
+	const value = hex.replace('#', '');
+	const full = value.length === 3 ? [...value].map((c) => c + c).join('') : value.slice(0, 6);
+	const [r, g, b] = [0, 2, 4].map((i) => Math.round(parseInt(full.slice(i, i + 2), 16) * shade));
+	return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 /** Reads a colour token from layout.css. MapLibre paint needs real colours, not var(). */
 function token(name: string): string {
 	return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -30,7 +41,9 @@ export class MapTheme {
 			card: token('--card'),
 			muted: token('--muted-foreground'),
 			chart: [1, 2, 3, 4, 5].map((i) => token(`--chart-${i}`)),
-			destructive: token('--destructive')
+			destructive: token('--destructive'),
+			lodging: token('--map-lodging'),
+			lodgingForeground: token('--map-lodging-foreground')
 		};
 	});
 }

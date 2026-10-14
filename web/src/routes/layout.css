@@ -65,6 +65,10 @@
 	--sticker-green: #1aae39;
 	--sticker-brown: #523410;
 
+	/* Map markers for stays: the hotel pink people know from map apps, with a white icon. */
+	--map-lodging: #d93f78;
+	--map-lodging-foreground: #ffffff;
+
 	--radius: 12px;
 
 	--sidebar: #ffffff;
@@ -115,6 +119,9 @@
 	--chart-3: #13a49b;
 	--chart-4: #9476de;
 	--chart-5: #df5c9f;
+
+	--map-lodging: #e45c8f;
+	--map-lodging-foreground: #ffffff;
 
 	--sidebar: #202020;
 	--sidebar-foreground: #e9e8e6;
@@ -174,6 +181,8 @@
 	--color-sticker-teal: var(--sticker-teal);
 	--color-sticker-green: var(--sticker-green);
 	--color-sticker-brown: var(--sticker-brown);
+	--color-map-lodging: var(--map-lodging);
+	--color-map-lodging-foreground: var(--map-lodging-foreground);
 
 	/* DESIGN.md radius scale. rounded-lg is the 12px card, rounded-xs the 4px field. */
 	--radius-xs: 4px;

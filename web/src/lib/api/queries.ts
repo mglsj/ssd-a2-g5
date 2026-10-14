@@ -13,6 +13,9 @@ export type PropertyListQuery = QueryOf<typeof api.properties.$get>;
 export type BookingListQuery = QueryOf<typeof api.bookings.$get>;
 export type ReviewListQuery = QueryOf<typeof api.reviews.$get>;
 export type AreaQuery = QueryOf<typeof api.map.area.$get>;
+export type WindowQuery = QueryOf<typeof api.map.hotspots.$get>;
+export type PinQuery = QueryOf<typeof api.map.pins.$get>;
+export type MapPropertiesQuery = QueryOf<typeof api.map.properties.$get>;
 export type AuditQuery = QueryOf<(typeof api.guests)[':id']['audit']['$get']>;
 export type MovingAverageQuery = QueryOf<typeof api.analytics['moving-average']['$get']>;
 export type RankQuery = QueryOf<typeof api.analytics.rank.$get>;
@@ -28,6 +31,11 @@ export type MovingAverage = Success<Awaited<ReturnType<typeof api.analytics['mov
 export type Ranking = Success<Awaited<ReturnType<typeof api.analytics.rank.$get>>>;
 export type SummaryPage = Success<Awaited<ReturnType<typeof api.analytics.summary.$get>>>;
 export type AuditPage = Success<Awaited<ReturnType<(typeof api.guests)[':id']['audit']['$get']>>>;
+export type Hotspots = Success<Awaited<ReturnType<typeof api.map.hotspots.$get>>>;
+export type Hotspot = Hotspots['features'][number];
+export type PinPage = Success<Awaited<ReturnType<typeof api.map.pins.$get>>>;
+export type Pin = PinPage['features'][number];
+export type Density = Success<Awaited<ReturnType<typeof api.map.density.$get>>>;
 export type AuditEntry = NonNullable<GuestDetail['latest_audit']>;
 export type BookingResult = Success<Awaited<ReturnType<typeof api.bookings.$post>>>;
 export type TopUpResult = Success<Awaited<ReturnType<(typeof api.guests)[':id']['top-up']['$post']>>>;
@@ -67,7 +75,11 @@ export const keys = {
 		list: (query: ReviewListQuery) => ['reviews', 'list', query] as const
 	},
 	map: {
-		area: (query: AreaQuery) => ['map', 'area', query] as const
+		all: ['map'] as const,
+		area: (query: AreaQuery) => ['map', 'area', query] as const,
+		hotspots: (query: WindowQuery) => ['map', 'hotspots', query] as const,
+		density: (query: WindowQuery) => ['map', 'density', query] as const,
+		properties: (query: MapPropertiesQuery) => ['map', 'properties', query] as const
 	},
 	analytics: {
 		all: ['analytics'] as const,
@@ -197,6 +209,28 @@ export const queries = {
 				queryKey: keys.map.area(query),
 				queryFn: ({ signal }) => unwrap(api.map.area.$get({ query }, init(signal))),
 				staleTime: Infinity
+			}),
+		// Hotspots and density refetch every 10 s. TanStack pauses this while the tab is hidden.
+		hotspots: (query: WindowQuery) =>
+			queryOptions({
+				queryKey: keys.map.hotspots(query),
+				queryFn: ({ signal }) => unwrap(api.map.hotspots.$get({ query }, init(signal))),
+				refetchInterval: 10_000,
+				placeholderData: keepPreviousData
+			}),
+		density: (query: WindowQuery) =>
+			queryOptions({
+				queryKey: keys.map.density(query),
+				queryFn: ({ signal }) => unwrap(api.map.density.$get({ query }, init(signal))),
+				refetchInterval: 10_000,
+				placeholderData: keepPreviousData
+			}),
+		properties: (query: MapPropertiesQuery) =>
+			queryOptions({
+				queryKey: keys.map.properties(query),
+				queryFn: ({ signal }) => unwrap(api.map.properties.$get({ query }, init(signal))),
+				staleTime: 5 * 60_000,
+				placeholderData: keepPreviousData
 			})
 	}
 };
@@ -205,6 +239,8 @@ export const queries = {
 export const mutations = {
 	book: (body: { guest_id: string; property_id: string; nights: number }) => unwrap(api.bookings.$post({ json: body })),
 	topUp: (id: string, amount: string) => unwrap(api.guests[':id']['top-up'].$post({ param: { id }, json: { amount } })),
+	pins: (query: PinQuery, signal?: AbortSignal) => unwrap(api.map.pins.$get({ query }, signal ? init(signal) : undefined)),
+	dropPin: (body: { lat: number; lng: number; user_id?: string }) => unwrap(api.map.pins.$post({ json: body })),
 	refreshSummary: () => unwrap(api.analytics.summary.refresh.$post()),
 	setStatus: (id: string, status: BookingStatus) =>
 		unwrap(api.bookings[':id'].status.$patch({ param: { id }, json: { status } }))
