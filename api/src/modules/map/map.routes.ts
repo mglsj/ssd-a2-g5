@@ -5,6 +5,8 @@ import {
   AreaQuery,
   DensityRings,
   DropPinBody,
+  HeatCells,
+  HeatQuery,
   HotspotQuery,
   Hotspots,
   PinFeature,
@@ -37,6 +39,19 @@ export const density = createRoute({
   description: "Runs `buildRadialDensityPipeline` from `mongo/02_workflow3_geonear.js`. Chart data, not GeoJSON.",
   request: { query: SearchWindowQuery },
   responses: { 200: json(DensityRings, "Rings, nearest first"), ...errors(400) },
+});
+
+export const heat = createRoute({
+  method: "get",
+  path: "/heat",
+  tags: ["Map"],
+  summary: "Search pins binned into a grid, for a heatmap layer",
+  description:
+    "Runs `$geoNear` over every pin in the window, then groups them into square cells `cell` metres wide. " +
+    "Each non-empty cell is one point at its pins' centroid, with `count` as the heatmap weight. " +
+    geoJsonNote,
+  request: { query: HeatQuery },
+  responses: { 200: geoJson(HeatCells, "Heat cells"), ...errors(400) },
 });
 
 export const pins = createRoute({

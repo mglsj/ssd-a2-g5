@@ -5,6 +5,7 @@ import * as routes from "./map.routes.ts";
 export default createRouter()
   .openapi(routes.hotspots, handlers.hotspots)
   .openapi(routes.density, handlers.density)
+  .openapi(routes.heat, handlers.heat)
   .openapi(routes.pins, handlers.pins)
   .openapi(routes.dropPin, handlers.dropPin)
   .openapi(routes.properties, handlers.properties)

@@ -16,6 +16,20 @@ const expectFeatureCollection = (result: { type: string | null; body: Json }) =>
 const isSorted = (values: number[]) => values.every((value, i) => i === 0 || values[i - 1]! <= value);
 
 describe("map (Workflow 3) as GeoJSON", () => {
+  test("heat cells cover the window and their counts add up", async () => {
+    await call("POST", "/map/pins", { lat: 17.4456, lng: 78.349 });
+    const heat = await call("GET", `/map/heat?${IIIT}&cell=200`);
+    expectFeatureCollection(heat);
+    expect(heat.body.features.length).toBeGreaterThan(0);
+    const counts: number[] = heat.body.features.map((f: Json) => f.properties.count);
+    expect(counts.reduce((sum, n) => sum + n, 0)).toBe(heat.body.total);
+    expect(Math.max(...counts)).toBe(heat.body.max_count);
+    expect(new Set(heat.body.features.map((f: Json) => f.id)).size).toBe(counts.length);
+
+    const bad = await call("GET", `/map/heat?${IIIT}&cell=5`);
+    expect(bad.status).toBe(400);
+  });
+
   test("a dropped pin is a feature, shows up in the pins layer and in a hotspot", async () => {
     const pin = await call("POST", "/map/pins", { lat: 17.4456, lng: 78.349 });
     expect(pin.status).toBe(201);

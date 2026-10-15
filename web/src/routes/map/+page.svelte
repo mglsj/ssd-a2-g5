@@ -66,6 +66,7 @@
 	const hotspots = createQuery(() => ({ ...queries.map.hotspots(searchWindow), enabled: actor.isManager }));
 	const density = createQuery(() => ({ ...queries.map.density(searchWindow), enabled: actor.isManager }));
 	const properties = createQuery(() => queries.map.properties(searchWindow));
+	const heat = createQuery(() => queries.map.heat(searchWindow));
 
 	// One poller per origin. It loads all pins, then asks every 5 s for pins after its cursor.
 	const live = $derived(new LivePins({ lat, lng }));
@@ -79,7 +80,13 @@
 	// A 1 s clock for "updated N s ago" and for the pulse on new pins.
 	const clock = new Clock(1000);
 
-	const pinData = $derived({ type: 'FeatureCollection' as const, features: live.pins });
+	// Searches in the window: every pin, from the binned heat cells once they load.
+	const searchCount = $derived(heat.data?.total ?? live.pins.length);
+	// A square root keeps quieter cells visible next to a dense one.
+	const heatWeight = $derived([
+		'sqrt',
+		['/', ['get', 'count'], Math.max(1, heat.data?.max_count ?? 1)]
+	] as maplibregl.ExpressionSpecification);
 	const freshData = $derived.by(() => {
 		const now = clock.now;
 		return {
@@ -99,6 +106,8 @@
 	const empty = $derived(
 		!live.loading &&
 			!live.error &&
+			heat.isSuccess &&
+			searchCount === 0 &&
 			live.pins.length === 0 &&
 			(!actor.isManager || (hotspots.isSuccess && features.length === 0))
 	);
@@ -331,19 +340,23 @@
 				</GeoJSONSource>
 			{/if}
 
-			<!-- Every live pin feeds the heatmap. Each counts once; overlap is what makes it hot. -->
-			<GeoJSONSource id="pins" data={pinData} promoteId="id">
-				<HeatmapLayer
+			<!-- Every search in the window, binned into 100 m cells and weighted by how many each holds. -->
+			{#if heat.data}
+				<GeoJSONSource id="heat" data={heat.data}>
+					<HeatmapLayer
 					layout={visibility('heat')}
 					paint={{
-						'heatmap-weight': 1,
-						'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 10, 0.15, 13, 0.3, 16, 0.8],
-						'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 10, 10, 13, 20, 16, 40],
+						'heatmap-weight': heatWeight,
+						// Cells overlap heavily when zoomed out, so intensity starts low. The radius grows about as fast as the map
+						// at street level, so the 100 m grid never shows through as dots.
+						'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 10, 0.15, 13, 0.35, 15, 0.7, 17, 1],
+						'heatmap-radius': ['interpolate', ['exponential', 2], ['zoom'], 10, 8, 13, 20, 15, 50, 17, 200],
 						'heatmap-color': heatColor,
 						'heatmap-opacity': 0.9
 					}}
 				/>
-			</GeoJSONSource>
+				</GeoJSONSource>
+			{/if}
 
 			<!-- New pings pulse: an ink ring that grows and fades over four seconds. -->
 			<GeoJSONSource id="fresh-pins" data={freshData}>
@@ -534,7 +547,7 @@
 			<p class="bg-card text-caption shadow-soft flex items-center gap-1.5 rounded-full px-3 py-1.5" aria-live="off">
 				<RadioIcon class={live.error || live.paused ? 'text-muted-foreground size-3.5' : 'text-success size-3.5'} aria-hidden="true" />
 				<span class="tabular-nums">{updatedText}</span>
-				<span class="text-muted-foreground">· {count(live.pins.length)} {live.pins.length === 1 ? 'search' : 'searches'}</span>
+				<span class="text-muted-foreground">· {count(searchCount)} {searchCount === 1 ? 'search' : 'searches'}</span>
 			</p>
 		</div>
 	</div>

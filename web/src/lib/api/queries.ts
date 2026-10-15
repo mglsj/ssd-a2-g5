@@ -37,6 +37,7 @@ export type Hotspots = Success<Awaited<ReturnType<typeof api.map.hotspots.$get>>
 export type Hotspot = Hotspots['features'][number];
 export type PinPage = Success<Awaited<ReturnType<typeof api.map.pins.$get>>>;
 export type Pin = PinPage['features'][number];
+export type HeatCells = Success<Awaited<ReturnType<typeof api.map.heat.$get>>>;
 export type Density = Success<Awaited<ReturnType<typeof api.map.density.$get>>>;
 export type AuditEntry = NonNullable<GuestDetail['latest_audit']>;
 export type BookingResult = Success<Awaited<ReturnType<typeof api.bookings.$post>>>;
@@ -81,6 +82,7 @@ export const keys = {
 		all: ['map'] as const,
 		area: (query: AreaQuery) => ['map', 'area', query] as const,
 		hotspots: (query: WindowQuery) => ['map', 'hotspots', query] as const,
+		heat: (query: WindowQuery) => ['map', 'heat', query] as const,
 		density: (query: WindowQuery) => ['map', 'density', query] as const,
 		properties: (query: MapPropertiesQuery) => ['map', 'properties', query] as const
 	},
@@ -224,6 +226,14 @@ export const queries = {
 			queryOptions({
 				queryKey: keys.map.hotspots(query),
 				queryFn: ({ signal }) => unwrap(api.map.hotspots.$get({ query }, init(signal))),
+				refetchInterval: 10_000,
+				placeholderData: keepPreviousData
+			}),
+		// Every pin in the window, binned, for the heatmap. The pins endpoint only has the nearest few thousand.
+		heat: (query: WindowQuery) =>
+			queryOptions({
+				queryKey: keys.map.heat(query),
+				queryFn: ({ signal }) => unwrap(api.map.heat.$get({ query }, init(signal))),
 				refetchInterval: 10_000,
 				placeholderData: keepPreviousData
 			}),

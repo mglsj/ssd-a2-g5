@@ -319,7 +319,7 @@ map.addLayer({ id: "hotspots", type: "circle", source: "hotspots",
 - Money stays a string. Use `["to-number", ["get", "base_price"]]` in expressions.
 - Hotspots and pins also carry the search window as extra top-level members (`center`, `radius_meters`, `generated_at`). RFC 7946 allows these, and MapLibre ignores them.
 
-The search window is shared by hotspots, pins and density:
+The search window is shared by hotspots, heat, pins and density:
 
 | Query | Notes |
 |---|---|
@@ -356,6 +356,16 @@ Extra query: `sort`, either `distance` (default, by average distance) or `volume
 ```
 
 `features` is empty when no pins are recent, for example two hours after seeding without `--live`.
+
+### `GET /api/map/heat`
+
+Every pin in the window, binned for a heatmap layer. `$geoNear` finds the pins with the same index as the hotspots, then `$group` puts them in square cells. Each non-empty cell is one point at its pins' centroid. Use this rather than `/pins` for a heatmap: `/pins` keeps only the nearest few thousand, which draws a hard-edged disc when searches cluster near the centre.
+
+| Extra query | Notes |
+|---|---|
+| `cell` | Cell width in metres, default 100, from 25 to 1000 |
+
+Each feature's properties are `{ "count" }`, and its `id` is the cell's grid position as `"x:y"`. The collection also has `total` (every pin in the window) and `max_count` (the busiest cell), so a style can weight cells with `["/", ["get", "count"], max_count]`. Results are cached for 5 seconds per window, like the hotspots.
 
 ### `GET /api/map/pins`
 

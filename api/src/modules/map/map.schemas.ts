@@ -67,6 +67,22 @@ export const PinQuery = SearchWindowQuery.extend({
   limit: z.coerce.number().int().min(1).max(5000).default(1000).openapi({ description: "Nearest pins kept" }),
 });
 
+export const HeatQuery = SearchWindowQuery.extend({
+  cell: z.coerce.number().int().min(25).max(1000).default(100).openapi({ description: "Grid cell width in metres" }),
+});
+
+export const HeatProperties = z.object({
+  count: z.number().int().openapi({ description: "Pins in the cell. Use as heatmap-weight" }),
+});
+
+export const HeatCells = featureCollection(feature(PointGeometry, HeatProperties))
+  .extend({
+    ...searchWindow,
+    total: z.number().int().openapi({ description: "Pins in the window, the sum of every count" }),
+    max_count: z.number().int().openapi({ description: "The largest count, for normalising weights" }),
+  })
+  .openapi("HeatCells", { description: "Pins binned into a square grid, one point per non-empty cell at its pins' centroid" });
+
 export const PinProperties = z.object({
   id: z.string(),
   session_id: z.uuid(),
@@ -119,6 +135,8 @@ export type SearchWindowQuery = z.infer<typeof SearchWindowQuery>;
 export type HotspotQuery = z.infer<typeof HotspotQuery>;
 export type HotspotProperties = z.infer<typeof HotspotProperties>;
 export type Ring = z.infer<typeof Ring>;
+export type HeatQuery = z.infer<typeof HeatQuery>;
+export type HeatProperties = z.infer<typeof HeatProperties>;
 export type PinQuery = z.infer<typeof PinQuery>;
 export type PinProperties = z.infer<typeof PinProperties>;
 export type DropPinBody = z.infer<typeof DropPinBody>;
