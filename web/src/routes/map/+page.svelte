@@ -25,7 +25,6 @@
 	import { toast } from 'svelte-sonner';
 	import { goto } from '$app/navigation';
 	import { Button } from '#lib/components/shadcn/button/index.js';
-	import * as Card from '#lib/components/shadcn/card/index.js';
 	import * as Sheet from '#lib/components/shadcn/sheet/index.js';
 	import { Skeleton } from '#lib/components/shadcn/skeleton/index.js';
 	import { Spinner } from '#lib/components/shadcn/spinner/index.js';
@@ -540,29 +539,14 @@
 		</div>
 	</div>
 
-	<!-- Hidden while dropping, so the click reaches the map. -->
+	<!-- A quiet note above the bottom controls. Clicks pass through to the map. -->
 	{#if empty && !dropping}
-		<div class="absolute inset-0 grid place-items-center bg-black/10 p-4">
-			<Card.Root class="max-w-md" elevated>
-				<Card.Header>
-					<Card.Title class="flex items-center gap-2">
-						<SearchXIcon class="size-5" aria-hidden="true" />
-						No searches in the last 2 hours
-					</Card.Title>
-					<Card.Description>
-						No one has searched near here recently.
-						{actor.isManager ? 'Try another area.' : 'Try another area, or drop a pin on a spot you are interested in.'}
-					</Card.Description>
-				</Card.Header>
-				{#if !actor.isManager}
-					<Card.Content>
-						<Button size="sm" onclick={() => (dropping = true)}>
-							<MapPinPlusIcon data-icon="inline-start" />
-							Drop a pin
-						</Button>
-					</Card.Content>
-				{/if}
-			</Card.Root>
-		</div>
+		<p
+			role="status"
+			class="bg-card text-caption shadow-soft text-ink-secondary pointer-events-none absolute bottom-40 left-1/2 flex w-max max-w-[calc(100%-1.5rem)] -translate-x-1/2 items-center gap-1.5 rounded-full px-3 py-1.5 sm:bottom-24"
+		>
+			<SearchXIcon class="size-3.5 shrink-0" aria-hidden="true" />
+			No searches here in the last 2 hours
+		</p>
 	{/if}
 </div>

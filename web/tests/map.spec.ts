@@ -16,8 +16,7 @@ test('a dropped pin shows on the map and is stored', async ({ page, request }) =
 	const countOf = async () => Number((await pill.textContent())!.replace(/\D/g, ''));
 	const pinsBefore = await countOf();
 
-	// With no recent searches the empty-state card covers the map and offers its own button. It is the last one.
-	await page.getByRole('button', { name: 'Drop a pin' }).last().click();
+	await page.getByRole('button', { name: 'Drop a pin' }).click();
 	await expect(page.getByText('Click the map to drop a pin')).toBeVisible();
 	// Off-centre, so the click misses the origin marker.
 	const canvas = page.locator('.maplibregl-canvas');
