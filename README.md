@@ -13,7 +13,7 @@ StaySpot is a vacation rental system for Hyderabad. This repository extends the 
 |---|---|---|
 | Lakshyajeet Singh Jalal | 2026201063 | Frontend |
 | Subham Sarma | 2026202006 | Backend |
-| TODO | TODO | TODO |
+| Tarishi Hemani | 2026201044 | Backend |
 | TODO | TODO | TODO |
 
 ## Run it
