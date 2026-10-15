@@ -300,6 +300,7 @@ def main():
             gid,
             b["property_id"],
             b["nights"],
+            b["created_at"].date(),
             b["total_cost"],
             b["status"],
             b["created_at"],
@@ -332,7 +333,7 @@ def main():
             [
                 (
                     "bookings",
-                    "id, guest_id, property_id, nights, total_cost, status, created_at",
+                    "id, guest_id, property_id, nights, check_in_date, total_cost, status, created_at",
                     bookings,
                 ),
                 (

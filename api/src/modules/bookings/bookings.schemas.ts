@@ -1,5 +1,5 @@
 import { z } from "@hono/zod-openapi";
-import { Money, PageQuery, Timestamp, Uuid } from "../../shared/schemas.ts";
+import { IsoDate, Money, PageQuery, Timestamp, Uuid } from "../../shared/schemas.ts";
 import { AuditEntry } from "../wallet/wallet.schemas.ts";
 
 export const BookingStatus = z.enum(["CONFIRMED", "CHECKED_IN", "COMPLETED"]);
@@ -12,6 +12,7 @@ export const Booking = z
     property_id: Uuid,
     property_title: z.string(),
     nights: z.number().int(),
+    check_in_date: IsoDate,
     total_cost: Money,
     status: BookingStatus,
     created_at: Timestamp,
@@ -28,6 +29,9 @@ export const CreateBookingBody = z.object({
   guest_id: Uuid,
   property_id: Uuid,
   nights: z.number().int().min(1).max(365).openapi({ example: 3 }),
+  check_in_date: IsoDate.optional().openapi({
+    description: "First night. Today up to 365 days ahead. Defaults to today",
+  }),
 });
 
 export const BookingCreated = z

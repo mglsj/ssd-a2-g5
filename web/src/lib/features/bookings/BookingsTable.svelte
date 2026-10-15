@@ -3,7 +3,7 @@
 	import Money from '#lib/components/data/Money.svelte';
 	import StatusBadge from '#lib/components/data/StatusBadge.svelte';
 	import type { Booking } from '#lib/api/queries.js';
-	import { date } from '#lib/format.js';
+	import { date, longDay } from '#lib/format.js';
 	import ActiveStayCallout, { type Conflict } from './ActiveStayCallout.svelte';
 	import StatusAction from './StatusAction.svelte';
 
@@ -24,6 +24,7 @@
 		[
 			{ key: 'property', header: 'Property', cell: property, class: 'whitespace-normal min-w-48' },
 			showGuest ? { key: 'guest', header: 'Guest', cell: guest } : null,
+			{ key: 'check_in', header: 'Check-in', cell: checkIn },
 			{ key: 'nights', header: 'Nights', cell: nights, align: 'right' },
 			{ key: 'total', header: 'Total', cell: total, align: 'right' },
 			{ key: 'status', header: 'Status', cell: status },
@@ -34,6 +35,7 @@
 
 {#snippet property(b: Booking)}{b.property_title}{/snippet}
 {#snippet guest(b: Booking)}<a href="/guests/{b.guest_id}" class="relative z-10">{b.guest_name}</a>{/snippet}
+{#snippet checkIn(b: Booking)}<time datetime={b.check_in_date}>{longDay(b.check_in_date)}</time>{/snippet}
 {#snippet nights(b: Booking)}{b.nights}{/snippet}
 {#snippet total(b: Booking)}<Money value={b.total_cost} />{/snippet}
 {#snippet status(b: Booking)}<StatusBadge status={b.status} />{/snippet}

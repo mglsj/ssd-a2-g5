@@ -23,6 +23,22 @@ export const density: Handler<typeof routes.density> = async (c) => {
   return c.json({ ...searchWindow(query), items: await map.findDensityRings(query) }, 200);
 };
 
+export const heat: Handler<typeof routes.heat> = async (c) => {
+  const query = c.req.valid("query");
+  const features = await map.findHeatCells(query);
+  let total = 0;
+  let max = 0;
+  for (const { properties } of features) {
+    total += properties.count;
+    max = Math.max(max, properties.count);
+  }
+  return c.json(
+    { type: "FeatureCollection" as const, features, ...searchWindow(query), total, max_count: max },
+    200,
+    geoJsonHeaders,
+  );
+};
+
 export const pins: Handler<typeof routes.pins> = async (c) => {
   const query = c.req.valid("query");
   const { features, cursor } = await map.findPins(query);

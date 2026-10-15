@@ -16,7 +16,7 @@
 	import StatusTimeline from '#lib/features/bookings/StatusTimeline.svelte';
 	import { toApiError } from '#lib/api/errors.js';
 	import { queries } from '#lib/api/queries.js';
-	import { dateTime } from '#lib/format.js';
+	import { dateTime, longDay } from '#lib/format.js';
 	import { getActor } from '#lib/state/actor.svelte.js';
 	import AccessGate from '#lib/components/app/AccessGate.svelte';
 
@@ -85,6 +85,8 @@
 						</dd>
 						<dt class="text-muted-foreground">Property</dt>
 						<dd><a href="/properties/{b.property_id}">{b.property_title}</a></dd>
+						<dt class="text-muted-foreground">Check-in</dt>
+						<dd><time datetime={b.check_in_date}>{longDay(b.check_in_date)}</time></dd>
 						<dt class="text-muted-foreground">Nights</dt>
 						<dd class="tabular-nums">{b.nights}</dd>
 						<dt class="text-muted-foreground">Total paid</dt>

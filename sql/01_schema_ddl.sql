@@ -27,7 +27,9 @@ CREATE TABLE IF NOT EXISTS bookings (
     guest_id UUID NOT NULL REFERENCES guests(id),
     property_id UUID NOT NULL REFERENCES properties(id),
     nights INT NOT NULL CHECK (nights BETWEEN 1 AND 365),
+    check_in_date DATE NOT NULL DEFAULT CURRENT_DATE,
     total_cost DECIMAL(10,2) NOT NULL CHECK (total_cost > 0.00),
     status VARCHAR(20) NOT NULL CHECK (status IN ('CONFIRMED', 'CHECKED_IN', 'COMPLETED')),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS check_in_date DATE NOT NULL DEFAULT CURRENT_DATE;

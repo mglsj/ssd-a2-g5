@@ -17,7 +17,8 @@
 	import TopUpDialog from '#lib/features/wallet/TopUpDialog.svelte';
 	import { toApiError } from '#lib/api/errors.js';
 	import { keys, mutations, queries, type PropertyDetail } from '#lib/api/queries.js';
-	import { fromPaise, rupees, toPaise } from '#lib/format.js';
+	import { fromPaise, isoDate, longDay, rupees, toPaise } from '#lib/format.js';
+	import { Input } from '#lib/components/shadcn/input/index.js';
 	import BookingResult from './BookingResult.svelte';
 
 	type Props = {
@@ -34,11 +35,31 @@
 	const MIN = 1;
 	const MAX = 365;
 
+	// The viewer's own calendar day as YYYY-MM-DD, plus an offset in days.
+	const localDay = (offset = 0) => {
+		const now = new Date();
+		return isoDate(new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate() + offset)));
+	};
+	const earliest = localDay();
+	const latest = localDay(365);
+
+	let checkIn = $state(earliest);
 	let nights = $state(1);
 	let nightsText = $state('1');
 	let topUpOpen = $state(false);
 
 	const guest = createQuery(() => ({ ...queries.guests.detail(guestId ?? ''), enabled: guestId !== null }));
+
+	const checkInError = $derived(
+		!/^\d{4}-\d{2}-\d{2}$/.test(checkIn)
+			? 'Choose a check-in date'
+			: checkIn < earliest || checkIn > latest
+				? 'Check-in must be today or up to a year ahead'
+				: undefined
+	);
+	const checkOut = $derived(
+		checkInError ? null : isoDate(new Date(Date.parse(`${checkIn}T00:00:00Z`) + nights * 86_400_000))
+	);
 
 	const nightsError = $derived.by(() => {
 		const value = Number(nightsText);
@@ -51,7 +72,7 @@
 	const cost = $derived(fromPaise(costPaise));
 
 	const book = createMutation(() => ({
-		mutationFn: () => mutations.book({ guest_id: guestId!, property_id: property.id, nights }),
+		mutationFn: () => mutations.book({ guest_id: guestId!, property_id: property.id, nights, check_in_date: checkIn }),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: keys.guests.all });
 			queryClient.invalidateQueries({ queryKey: keys.bookings.all });
@@ -89,7 +110,7 @@
 
 	function submit(event: SubmitEvent) {
 		event.preventDefault();
-		if (nightsError || guestId === null) return;
+		if (nightsError || checkInError || guestId === null) return;
 		book.mutate();
 	}
 </script>
@@ -106,6 +127,27 @@
 		</Card.Header>
 		<Card.Content>
 			<form class="flex flex-col gap-5" onsubmit={submit} novalidate>
+				<div class="flex flex-col gap-1.5">
+					<Label for="check-in">Check-in</Label>
+					<Input
+						id="check-in"
+						name="check-in"
+						type="date"
+						class="w-44"
+						min={earliest}
+						max={latest}
+						bind:value={checkIn}
+						oninput={() => book.reset()}
+						aria-invalid={checkInError ? 'true' : undefined}
+						aria-describedby={checkInError ? 'check-in-error' : undefined}
+					/>
+					{#if checkInError}
+						<p id="check-in-error" class="text-caption text-destructive">{checkInError}</p>
+					{:else if checkOut}
+						<p class="text-caption text-muted-foreground">Check-out {longDay(checkOut)}</p>
+					{/if}
+				</div>
+
 				<div class="flex flex-col gap-1.5">
 					<Label for="nights">Nights</Label>
 					<InputGroup.Root class="w-40" aria-invalid={nightsError ? 'true' : undefined}>
@@ -168,7 +210,7 @@
 						Log in to continue
 					</Button>
 				{:else}
-					<Button type="submit" size="lg" class="w-full" disabled={!!nightsError || book.isPending}>
+					<Button type="submit" size="lg" class="w-full" disabled={!!nightsError || !!checkInError || book.isPending}>
 						{#if book.isPending}<Spinner data-icon="inline-start" />{/if}
 						Book for {rupees(cost, { whole: costPaise % 100 === 0 })}
 					</Button>

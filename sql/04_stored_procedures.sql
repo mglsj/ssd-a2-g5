@@ -1,7 +1,10 @@
+DROP PROCEDURE IF EXISTS sp_execute_booking(UUID, UUID, INT);
+
 CREATE OR REPLACE PROCEDURE sp_execute_booking(
     p_guest_id UUID,
     p_property_id UUID,
     p_nights INT,
+    p_check_in DATE,
     OUT booking_id UUID,
     OUT total_cost DECIMAL(10,2),
     OUT balance_before DECIMAL(10,2),
@@ -12,7 +15,13 @@ LANGUAGE plpgsql
 AS $$
 DECLARE
     v_base_price DECIMAL(10,2);
+    v_check_in DATE := COALESCE(p_check_in, CURRENT_DATE);
 BEGIN
+    IF v_check_in < CURRENT_DATE OR v_check_in > CURRENT_DATE + 365 THEN
+        RAISE EXCEPTION 'Check-in must be between today and 365 days ahead, got %', v_check_in
+            USING ERRCODE = 'invalid_parameter_value';
+    END IF;
+
     IF p_nights IS NULL OR p_nights NOT BETWEEN 1 AND 365 THEN
         RAISE EXCEPTION 'Nights must be between 1 and 365, got %', p_nights
             USING ERRCODE = 'invalid_parameter_value';
@@ -48,8 +57,8 @@ BEGIN
                       CONSTRAINT = 'chk_guests_wallet_nonnegative';
     END;
 
-    INSERT INTO bookings (guest_id, property_id, nights, total_cost, status)
-    VALUES (p_guest_id, p_property_id, p_nights, total_cost, 'CONFIRMED')
+    INSERT INTO bookings (guest_id, property_id, nights, check_in_date, total_cost, status)
+    VALUES (p_guest_id, p_property_id, p_nights, v_check_in, total_cost, 'CONFIRMED')
     RETURNING id INTO booking_id;
 
     SELECT w.id INTO audit_log_id
@@ -70,8 +79,9 @@ AS $$
 DECLARE
     v_guest_id UUID;
     v_active_booking_id UUID;
+    v_check_in DATE;
 BEGIN
-    SELECT b.status, b.guest_id INTO previous_status, v_guest_id
+    SELECT b.status, b.guest_id, b.check_in_date INTO previous_status, v_guest_id, v_check_in
     FROM bookings b WHERE b.id = p_booking_id
     FOR UPDATE;
     IF NOT FOUND THEN
@@ -83,6 +93,11 @@ BEGIN
          OR (previous_status = 'CHECKED_IN' AND p_new_status = 'COMPLETED')) THEN
         RAISE EXCEPTION 'A % booking cannot move to %', previous_status, p_new_status
             USING ERRCODE = 'invalid_parameter_value';
+    END IF;
+
+    IF p_new_status = 'CHECKED_IN' AND v_check_in > CURRENT_DATE THEN
+        RAISE EXCEPTION 'Check-in opens on %', v_check_in
+            USING ERRCODE = 'SP001';
     END IF;
 
     BEGIN

@@ -76,3 +76,40 @@ describe("booking statuses and idx_active_stay", () => {
     expect((await call("PATCH", `/bookings/${second.id}/status`, { status: "COMPLETED" })).status).toBe(200);
   });
 });
+
+describe("booking date", () => {
+  const day = (offset: number) => new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10);
+
+  test("a booking keeps the chosen check-in date and defaults to today", async () => {
+    await call("POST", `/guests/${guestId}/top-up`, { amount: 50000 });
+    const later = await call("POST", "/bookings", { guest_id: guestId, property_id: cheapPropertyId, nights: 1, check_in_date: day(10) });
+    expect(later.status).toBe(201);
+    expect(later.body.booking.check_in_date).toBe(day(10));
+
+    const today = await call("POST", "/bookings", { guest_id: guestId, property_id: cheapPropertyId, nights: 1 });
+    expect(today.body.booking.check_in_date).toBe(today.body.booking.created_at.slice(0, 10));
+  });
+
+  test("past dates and dates over a year ahead are refused", async () => {
+    for (const check_in_date of [day(-3), day(400)]) {
+      const result = await call("POST", "/bookings", { guest_id: guestId, property_id: cheapPropertyId, nights: 1, check_in_date });
+      expect(result.status).toBe(422);
+      expect(result.body.error.code).toBe("INVALID_INPUT");
+    }
+  });
+});
+
+describe("checking in early", () => {
+  test("a future stay cannot be checked in until its date", async () => {
+    await call("POST", `/guests/${guestId}/top-up`, { amount: 50000 });
+    const date = new Date(Date.now() + 5 * 86_400_000).toISOString().slice(0, 10);
+    const created = await call("POST", "/bookings", { guest_id: guestId, property_id: cheapPropertyId, nights: 1, check_in_date: date });
+    const id = created.body.booking.id;
+
+    const early = await call("PATCH", `/bookings/${id}/status`, { status: "CHECKED_IN" });
+    expect(early.status).toBe(409);
+    expect(early.body.error.code).toBe("TOO_EARLY_TO_CHECK_IN");
+    expect(early.body.error.detail.check_in_date).toBe(date);
+    expect((await call("GET", `/bookings/${id}`)).body.status).toBe("CONFIRMED");
+  });
+});

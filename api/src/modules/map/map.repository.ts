@@ -7,6 +7,8 @@ import { listAllProperties } from "../properties/properties.repository.ts";
 import type { PropertyFilter } from "../properties/properties.schemas.ts";
 import type {
   DropPinBody,
+  HeatProperties,
+  HeatQuery,
   HotspotProperties,
   HotspotQuery,
   PinProperties,
@@ -55,6 +57,53 @@ async function loadHotspots(query: HotspotQuery): Promise<Feature<Point, Hotspot
 export const findDensityRings = ttlCache(CACHE_MS, STALE_MS, windowKey, (query: SearchWindowQuery) =>
   searchSessions.aggregate<Ring>(buildRadialDensityPipeline(windowOptions(query))).toArray(),
 );
+
+type HeatDocument = { _id: { x: number; y: number }; count: number; lng: number; lat: number };
+
+/**
+ * Every pin in the window, binned into square cells about `cell` metres wide. The heatmap needs
+ * the whole spread, and the pins endpoint returns only the nearest few thousand.
+ */
+export const findHeatCells = ttlCache(
+  CACHE_MS,
+  STALE_MS,
+  (query: HeatQuery) => [windowKey(query), query.cell].join("|"),
+  loadHeatCells,
+);
+
+async function loadHeatCells(query: HeatQuery): Promise<Feature<Point, HeatProperties>[]> {
+  const latStep = query.cell / 111_320;
+  const lngStep = latStep / Math.cos((query.lat * Math.PI) / 180);
+  const cells = await searchSessions
+    .aggregate<HeatDocument>([
+      {
+        $geoNear: {
+          near: point(query.lng, query.lat),
+          distanceField: "distance_meters",
+          maxDistance: query.radius,
+          spherical: true,
+          query: { created_at: { $gte: new Date(Date.now() - query.since * 60_000) } },
+        },
+      },
+      {
+        $group: {
+          _id: {
+            x: { $floor: { $divide: [{ $arrayElemAt: ["$location.coordinates", 0] }, lngStep] } },
+            y: { $floor: { $divide: [{ $arrayElemAt: ["$location.coordinates", 1] }, latStep] } },
+          },
+          count: { $sum: 1 },
+          lng: { $avg: { $arrayElemAt: ["$location.coordinates", 0] } },
+          lat: { $avg: { $arrayElemAt: ["$location.coordinates", 1] } },
+        },
+      },
+    ])
+    .toArray();
+  return cells.map((cell) =>
+    toFeature(`${cell._id.x}:${cell._id.y}`, point(Math.round(cell.lng * 1e5) / 1e5, Math.round(cell.lat * 1e5) / 1e5), {
+      count: cell.count,
+    }),
+  );
+}
 
 type PinDocument = {
   _id: { toHexString(): string };
