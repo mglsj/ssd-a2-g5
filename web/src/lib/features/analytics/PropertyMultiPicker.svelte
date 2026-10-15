@@ -6,7 +6,7 @@
 	import * as Command from '#lib/components/shadcn/command/index.js';
 	import * as Popover from '#lib/components/shadcn/popover/index.js';
 	import { Spinner } from '#lib/components/shadcn/spinner/index.js';
-	import { toApiError } from '#lib/api/errors.js';
+	import { userMessage } from '#lib/api/errors.js';
 	import { queries } from '#lib/api/queries.js';
 
 	type Item = { id: string; title: string; color: string };
@@ -86,7 +86,7 @@
 							<div class="text-muted-foreground flex items-center gap-2 px-2 py-3 text-sm"><Spinner /> Searching…</div>
 						</Command.Loading>
 					{:else if results.isError}
-						<p class="text-destructive px-2 py-3 text-sm">{toApiError(results.error).message}</p>
+						<p class="text-destructive px-2 py-3 text-sm">{userMessage(results.error)}</p>
 					{:else if results.data.items.length === 0}
 						<p class="text-muted-foreground px-2 py-3 text-sm">Nothing matches “{debounced}”.</p>
 					{:else}

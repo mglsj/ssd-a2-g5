@@ -1,5 +1,5 @@
 <script lang="ts">
-	import DatabaseIcon from '@lucide/svelte/icons/database';
+	import CloudOffIcon from '@lucide/svelte/icons/cloud-off';
 	import { createQuery } from '@tanstack/svelte-query';
 	import * as Alert from '#lib/components/shadcn/alert/index.js';
 	import { queries } from '#lib/api/queries.js';
@@ -9,23 +9,17 @@
 	const problem = $derived.by(() => {
 		const data = health.data;
 		if (!data) return null;
-		if (data.api === 'down') {
-			return {
-				title: 'The API is down',
-				text: 'Nothing will load. Start it in the dev container with cd api && bun run dev.'
-			};
-		}
-		if (data.postgres === 'down' && data.mongo === 'down') {
-			return { title: 'Both databases are down', text: 'PostgreSQL and MongoDB are not answering. Nothing will load.' };
+		if (data.api === 'down' || (data.postgres === 'down' && data.mongo === 'down')) {
+			return { title: 'StaySpot is unavailable', text: 'Nothing can load right now.' };
 		}
 		if (data.postgres === 'down') {
 			return {
-				title: 'A database is down',
-				text: 'PostgreSQL is not answering. Guests, properties, bookings and analytics will not load.'
+				title: 'Some of StaySpot is unavailable',
+				text: 'Properties, bookings, wallets and analytics cannot load right now.'
 			};
 		}
 		if (data.mongo === 'down') {
-			return { title: 'A database is down', text: 'MongoDB is not answering. The map and reviews will not load.' };
+			return { title: 'Some of StaySpot is unavailable', text: 'The map, reviews and amenities cannot load right now.' };
 		}
 		return null;
 	});
@@ -34,9 +28,9 @@
 {#if problem}
 	<div class="mx-auto w-full max-w-6xl px-4 pt-4 sm:px-6">
 		<Alert.Root variant="destructive">
-			<DatabaseIcon />
+			<CloudOffIcon />
 			<Alert.Title>{problem.title}</Alert.Title>
-			<Alert.Description>{problem.text} This banner clears on its own once it is back.</Alert.Description>
+			<Alert.Description>{problem.text} We keep trying, and this message goes away once everything is back.</Alert.Description>
 		</Alert.Root>
 	</div>
 {/if}

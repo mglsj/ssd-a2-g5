@@ -10,5 +10,5 @@
 
 <!-- A new guest starts a fresh form, so one guest's result never shows under another's name. -->
 {#key actor.guestId}
-	<BookingForm {property} guestId={actor.guestId} isManager={actor.isManager} />
+	<BookingForm {property} guestId={actor.guestId} onlogin={() => actor.logIn()} />
 {/key}

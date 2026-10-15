@@ -20,7 +20,7 @@
 	title={notFound ? 'Page not found' : 'Something went wrong'}
 	description={notFound
 		? `There is no page at ${page.url.pathname}. It may have moved, or the link has a typo.`
-		: (page.error?.message ?? 'The page failed to load.')}
+		: 'This page failed to load. Try reloading it.'}
 >
 	<div class="flex flex-wrap justify-center gap-2">
 		<Button href="/">Go to the start page</Button>

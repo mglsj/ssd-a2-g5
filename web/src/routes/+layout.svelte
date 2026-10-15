@@ -50,7 +50,7 @@
 		<!-- The design system page has its own full-bleed layout. -->
 		{@render children()}
 	{:else}
-		<div class="flex min-h-dvh flex-col">
+		<div class={['flex flex-col', page.route.id === '/map' ? 'h-dvh' : 'min-h-dvh']}>
 			<AppShell>
 				{@render children()}
 			</AppShell>

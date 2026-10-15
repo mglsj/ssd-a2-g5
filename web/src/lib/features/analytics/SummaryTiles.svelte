@@ -51,7 +51,7 @@
 	});
 </script>
 
-<ul class="grid grid-cols-2 gap-4 lg:grid-cols-4" aria-label="Totals from mv_property_summary">
+<ul class="grid grid-cols-2 gap-4 lg:grid-cols-4" aria-label="Totals">
 	{#if !totals}
 		{#each { length: 4 }, i (i)}
 			<li><Skeleton class="h-28 rounded-lg" /></li>

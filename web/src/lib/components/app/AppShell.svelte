@@ -22,7 +22,8 @@
 	import { cn } from '#lib/utils.js';
 	import Money from '../data/Money.svelte';
 	import ActorSwitcher from './ActorSwitcher.svelte';
-	import GuestPicker from './GuestPicker.svelte';
+	import AccountMenu from './AccountMenu.svelte';
+	import LoginDialog from './LoginDialog.svelte';
 	import HealthBanner from './HealthBanner.svelte';
 	import type { Component, Snippet } from 'svelte';
 
@@ -36,26 +37,28 @@
 		enabled: actor.guestId !== null
 	}));
 
-	type NavItem = { href: string | null; label: string; icon: Component };
+	type NavItem = { href: string; label: string; icon: Component };
 
 	const nav = $derived.by((): NavItem[] => {
 		const shared: NavItem[] = [
 			{ href: '/properties', label: 'Properties', icon: HouseIcon },
-			{ href: '/map', label: 'Map', icon: MapIcon },
-			{ href: '/reviews', label: 'Reviews', icon: StarIcon }
+			{ href: '/map', label: 'Map', icon: MapIcon }
 		];
 		if (actor.isManager) {
 			return [
 				...shared,
 				{ href: '/bookings', label: 'Bookings', icon: CalendarDaysIcon },
 				{ href: '/guests', label: 'Guests', icon: UsersIcon },
-				{ href: '/analytics', label: 'Analytics', icon: ChartLineIcon }
+				{ href: '/analytics', label: 'Analytics', icon: ChartLineIcon },
+				{ href: '/reviews', label: 'Review insights', icon: StarIcon }
 			];
 		}
+		// A visitor who has not logged in sees only the public pages.
+		if (!actor.guestId) return shared;
 		return [
 			...shared,
 			{ href: '/bookings', label: 'My bookings', icon: CalendarDaysIcon },
-			{ href: actor.guestId ? `/guests/${actor.guestId}/wallet` : null, label: 'Wallet', icon: WalletIcon }
+			{ href: `/guests/${actor.guestId}/wallet`, label: 'Wallet', icon: WalletIcon }
 		];
 	});
 
@@ -63,43 +66,29 @@
 	const activeHref = $derived(
 		nav
 			.map((item) => item.href)
-			.filter((href): href is string => href !== null && (page.url.pathname === href || page.url.pathname.startsWith(`${href}/`)))
+			.filter((href) => page.url.pathname === href || page.url.pathname.startsWith(`${href}/`))
 			.sort((a, b) => b.length - a.length)[0]
 	);
 </script>
 
 {#snippet navLinks(vertical: boolean)}
 	{#each nav as item (item.label)}
-		{#if item.href}
-			<a
-				href={item.href}
-				data-slot="nav-link"
-				aria-current={item.href === activeHref ? 'page' : undefined}
-				onclick={() => (menuOpen = false)}
-				class={cn(
-					'text-body-sm text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 flex items-center gap-2 rounded-md outline-none focus-visible:ring-[3px]',
-					vertical ? 'hover:bg-accent px-3 py-2.5' : 'relative px-3 py-3',
-					item.href === activeHref && 'text-foreground font-medium',
-					item.href === activeHref && !vertical && 'after:bg-primary after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-full',
-					item.href === activeHref && vertical && 'bg-accent'
-				)}
-			>
-				<item.icon class="size-4" aria-hidden="true" />
-				{item.label}
-			</a>
-		{:else}
-			<span
-				aria-disabled="true"
-				title="Pick a guest first"
-				class={cn(
-					'text-body-sm text-faint flex cursor-not-allowed items-center gap-2',
-					vertical ? 'px-3 py-2.5' : 'px-3 py-3'
-				)}
-			>
-				<item.icon class="size-4" aria-hidden="true" />
-				{item.label}
-			</span>
-		{/if}
+		<a
+			href={item.href}
+			data-slot="nav-link"
+			aria-current={item.href === activeHref ? 'page' : undefined}
+			onclick={() => (menuOpen = false)}
+			class={cn(
+				'text-body-sm text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 flex items-center gap-2 rounded-md outline-none focus-visible:ring-[3px]',
+				vertical ? 'hover:bg-accent px-3 py-2.5' : 'relative px-3 py-3',
+				item.href === activeHref && 'text-foreground font-medium',
+				item.href === activeHref && !vertical && 'after:bg-primary after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-full',
+				item.href === activeHref && vertical && 'bg-accent'
+			)}
+		>
+			<item.icon class="size-4" aria-hidden="true" />
+			{item.label}
+		</a>
 	{/each}
 {/snippet}
 
@@ -142,14 +131,13 @@
 				<Sheet.Header>
 					<Sheet.Title>StaySpot</Sheet.Title>
 					<Sheet.Description>
-						{actor.isManager ? 'Operations manager' : 'Guest'} view
+						{actor.isManager ? 'Manager' : 'Guest'} view
 					</Sheet.Description>
 				</Sheet.Header>
 				<div class="flex flex-col gap-6 px-4 pb-4">
 					<div class="flex flex-col gap-2">
-						<p class="text-eyebrow text-muted-foreground uppercase">Act as</p>
+						<p class="text-eyebrow text-muted-foreground uppercase">View as</p>
 						<ActorSwitcher class="w-full" />
-						<GuestPicker class="w-full" />
 					</div>
 					<nav aria-label="Main" class="flex flex-col gap-1">
 						{@render navLinks(true)}
@@ -166,10 +154,13 @@
 		</a>
 
 		<div class="ml-auto flex min-w-0 items-center gap-2">
+			{#if !actor.isManager}
+				<div class="hidden md:block">{@render balance(false)}</div>
+				<div class="md:hidden">{@render balance(true)}</div>
+				<AccountMenu class="hidden md:inline-flex" />
+				<AccountMenu compact class="md:hidden" />
+			{/if}
 			<ActorSwitcher class="hidden md:flex" />
-			<GuestPicker class="hidden max-w-52 md:flex" />
-			<div class="hidden md:block">{@render balance(false)}</div>
-			<div class="md:hidden">{@render balance(true)}</div>
 			<Button variant="ghost" size="icon" onclick={toggleMode} aria-label="Toggle dark mode">
 				{#if mode.current === 'dark'}<SunIcon />{:else}<MoonIcon />{/if}
 			</Button>
@@ -181,8 +172,15 @@
 	</nav>
 </header>
 
+<LoginDialog />
 <HealthBanner />
 
-<main id="main" class="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-8 px-4 py-8 sm:px-6">
+<!-- The map fills the rest of the screen, edge to edge. -->
+<main
+	id='main'
+	class={page.route.id === '/map'
+		? 'relative flex min-h-0 w-full flex-1 flex-col'
+		: 'mx-auto flex w-full max-w-6xl flex-1 flex-col gap-8 px-4 py-8 sm:px-6'}
+>
 	{@render children()}
 </main>

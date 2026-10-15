@@ -20,13 +20,13 @@
 	const latest = createQuery(() => queries.reviews.list({ property_id: propertyId, limit: '3' }));
 
 	const reviewsHref = (params: Record<string, string> = {}) =>
-		`/reviews?${new URLSearchParams({ property_id: propertyId, ...params })}`;
+		`/properties/${propertyId}/reviews${Object.keys(params).length ? `?${new URLSearchParams(params)}` : ''}`;
 </script>
 
 <Card.Root class={className}>
 	<Card.Header>
 		<Card.Title>Reviews</Card.Title>
-		<Card.Description>From the $facet pipeline on PropertyReviews</Card.Description>
+		<Card.Description>What guests say about this stay</Card.Description>
 	</Card.Header>
 	<Card.Content class="flex flex-col gap-5">
 		<QueryBoundary query={facets} isEmpty={(data) => data.overall_summary.total_reviews === 0}>

@@ -8,7 +8,7 @@
 	import * as Command from '#lib/components/shadcn/command/index.js';
 	import * as Popover from '#lib/components/shadcn/popover/index.js';
 	import { Spinner } from '#lib/components/shadcn/spinner/index.js';
-	import { toApiError } from '#lib/api/errors.js';
+	import { userMessage } from '#lib/api/errors.js';
 	import { queries } from '#lib/api/queries.js';
 
 	type Origin = { lat: number; lng: number; label: string };
@@ -48,21 +48,21 @@
 		{#snippet child({ props })}
 			<Button {...props} variant="outline" role="combobox" aria-expanded={open} class="bg-card max-w-72 justify-between">
 				<MapPinIcon data-icon="inline-start" />
-				<span class="truncate">Origin: {label}</span>
+				<span class="truncate">Near {label}</span>
 				<ChevronsUpDownIcon data-icon="inline-end" class="opacity-50" />
 			</Button>
 		{/snippet}
 	</Popover.Trigger>
 	<Popover.Content class="w-80 p-0" align="start">
-		<Command.Root shouldFilter={false} label="Choose the search origin">
+		<Command.Root shouldFilter={false} label="Choose where to search">
 			<Command.Input
 				placeholder="Search a property…"
-				aria-label="Search a property to use as the origin"
+				aria-label="Search for a property to centre the map on"
 				value={search}
 				oninput={(event) => onSearch(event.currentTarget.value)}
 			/>
 			<Command.List>
-				<Command.Group heading="Origin">
+				<Command.Group heading="Search near">
 					<Command.Item value="iiit" onSelect={() => choose(null)}>
 						<GraduationCapIcon />
 						IIIT Hyderabad
@@ -75,7 +75,7 @@
 								<div class="text-muted-foreground flex items-center gap-2 px-2 py-3 text-sm"><Spinner /> Searching…</div>
 							</Command.Loading>
 						{:else if results.isError}
-							<p class="text-destructive px-2 py-3 text-sm">{toApiError(results.error).message}</p>
+							<p class="text-destructive px-2 py-3 text-sm">{userMessage(results.error)}</p>
 						{:else if results.data.items.length === 0}
 							<p class="text-muted-foreground px-2 py-3 text-sm">Nothing matches “{debounced}”.</p>
 						{:else}
@@ -89,7 +89,7 @@
 					</Command.Group>
 				{/if}
 			</Command.List>
-			<p class="text-caption text-muted-foreground border-t px-3 py-2">You can also click the map to move the origin.</p>
+			<p class="text-caption text-muted-foreground border-t px-3 py-2">You can also click the map to search somewhere else.</p>
 		</Command.Root>
 	</Popover.Content>
 </Popover.Root>

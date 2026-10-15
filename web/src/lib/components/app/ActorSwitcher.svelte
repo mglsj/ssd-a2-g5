@@ -19,7 +19,7 @@
 <ToggleGroup.Root
 	type="single"
 	variant="outline"
-	aria-label="Act as"
+	aria-label="View as"
 	bind:value={
 		() => actor.role,
 		(value) => {

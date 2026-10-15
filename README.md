@@ -1,7 +1,7 @@
 # StaySpot
 
 Vacation rental database (PostgreSQL + MongoDB) from Assignment 1, with a server layer and a web front end for Assignment 2.
-A guest can browse stays in Hyderabad, book one, top up their wallet and read reviews. An operations manager can move bookings through their statuses, look up guests and watch revenue. Both can see where people are searching on a live map.
+A guest can browse stays in Hyderabad, book one, top up their wallet and read reviews. An operations manager can move bookings through their statuses, look up guests, watch revenue and see how guests rate stays across the site. Both can see where people are searching on a live, full-screen map. Guests hover a property on it for a photo, name and price. Managers also get the list of search hotspots.
 
 - Assignment 1 repository: https://github.com/rashhmi1/stayspot-database-a1
 - Assignment 2 repository: https://github.com/mglsj/ssd-a2-g5
@@ -78,14 +78,14 @@ Open http://localhost:4173. [`web/.env.example`](web/.env.example) lists these v
 
 ### Demo path
 
-1. In the header, pick **Guest**, then the low-balance guest shortcut in the guest picker.
-2. Open a property and book it. The booking fails with "Not enough in the wallet" and the balance stays the same.
+1. In the header, pick **Guest**. Open a property and press **Log in to continue**, then choose **Lowest balance**.
+2. Book the stay. The booking fails with "Not enough in the wallet" and the balance stays the same.
 3. Use **Top up** for the difference, then book again. The result shows the balance before and after and the new audit row.
 4. Open **Wallet** to see the audit trail with opening and closing balances.
-5. Switch to **Manager**. Pick the checked-in guest shortcut, open one of their CONFIRMED bookings and press **Check in**. The partial unique index blocks it, and the message links to the active stay.
-6. On **Bookings**, complete a CHECKED_IN stay. Then on **Analytics**, press **Refresh view** to see the materialized view change.
-7. On **Map**, watch new pins arrive, or drop one. Hover a hotspot to find it on the map.
-8. On **Reviews**, click a tag to filter the list. The count matches the tag's frequency.
+5. Switch to **Manager**. On **Guests**, filter to guests who are checked in, open one, and press **Check in** on one of their CONFIRMED bookings. The partial unique index blocks it, and the message links to the active stay.
+6. On **Bookings**, complete a CHECKED_IN stay. Then on **Analytics**, press **Update figures** to see the materialized view change.
+7. On **Map**, watch new pins arrive on the heatmap. As a guest, drop a pin, and hover a property marker to preview it. As a manager, hover a hotspot in the panel over the map to find it.
+8. On **Review insights**, click a tag to filter the list. The count matches the tag's frequency. As a guest, the same filtering works on a property's own reviews page.
 
 ## Tests
 
@@ -102,24 +102,27 @@ The Playwright tests in `web/tests/` cover the four flows we care most about:
 - a second check-in blocked by `idx_active_stay`, with a link to the active stay;
 - a pin dropped on the map that shows up at once and is stored in MongoDB.
 
+`web/tests/roles.spec.ts` also checks what each role can see: a visitor logs in from the booking panel and is asked to log in for bookings and the wallet, a manager sees a property's performance instead of a booking panel and reads wallets without topping them up, and a guest cannot open manager pages.
+
 They use Microsoft Edge, which ships with Windows, so no browser download is needed. Set `PW_CHANNEL=chromium` (after `bunx playwright install chromium`) to use Playwright's own browser, and `WEB_URL=http://localhost:4173` to test the production build. Each run books a stay and tops up a wallet.
 
 ## Screens
 
-There is no login. A switcher in the header picks the role and the guest to act as, as the brief allows for demos. Every list is paged, and every screen has loading, empty and error states and works at phone width and in dark mode. `/design` shows the design system.
+A switch in the header picks **Guest** or **Manager**, as the brief allows for demos. A guest starts logged out and logs in by choosing one of the seeded guest accounts; there are no passwords. A manager is never tied to a guest. Every list is paged, and every screen has loading, empty and error states and works at phone width and in dark mode. `/design` shows the design system.
 
-| Screen | Route | Who |
-|---|---|---|
-| Properties: search, price range, near IIIT, sort | `/properties` | Guest |
-| Property: summary, amenities document, reviews, map, booking panel (Workflow 1) | `/properties/[id]` | Guest |
-| Wallet and audit trail | `/guests/[id]/wallet` | Both |
-| Guests | `/guests` | Manager |
-| Guest detail | `/guests/[id]` | Both |
-| Bookings, with Check in and Complete | `/bookings` | Both (a guest sees their own) |
-| Booking detail and status timeline | `/bookings/[id]` | Both |
-| Analytics (Workflow 2) | `/analytics` | Manager |
-| Map (Workflow 3) | `/map` | Both |
-| Reviews (Workflow 4) | `/reviews` | Both |
+| Screen | Route | Guest, logged out | Guest, logged in | Manager |
+|---|---|---|---|---|
+| Properties: search, price range, near IIIT, sort | `/properties` | Yes | Yes | Yes, plus a revenue sort |
+| Property: amenities, reviews, map | `/properties/[id]` | "Log in to continue" in place of booking | Booking panel (Workflow 1) | Performance card: stays, nights, revenue |
+| My bookings / all bookings | `/bookings` | Asked to log in | Own bookings | All bookings, with Check in and Complete |
+| Booking detail and status timeline | `/bookings/[id]` | Asked to log in | Own bookings only | Any booking, with the next status action |
+| Wallet and audit trail | `/guests/[id]/wallet` | Asked to log in | Own wallet, with top-up | Any wallet, read-only |
+| Guests and guest detail | `/guests`, `/guests/[id]` | No | No | Yes |
+| Analytics (Workflow 2) | `/analytics` | No | No | Yes |
+| Map: search heatmap, property previews | `/map` | Yes, can drop a pin | Yes, can drop a pin | Yes, no pin dropping |
+| Search hotspots and distance breakdown, over the map (Workflow 3) | `/map` | No | No | Yes |
+| Property reviews: ratings, tags, paged list | `/properties/[id]/reviews` | Yes | Yes | Yes |
+| Review insights across all properties, with the amenities document (Workflow 4) | `/reviews` | No | No | Yes |
 
 The screen plan and wireframes are in [`docs/design/screens.md`](docs/design/screens.md). `bash scripts/screenshots.sh` rewrites these screenshots from the running app.
 
@@ -129,9 +132,10 @@ The screen plan and wireframes are in [`docs/design/screens.md`](docs/design/scr
 | ![Booking result](docs/design/screenshots/03-booking-result.png) Booking confirmed | ![Insufficient balance](docs/design/screenshots/04-booking-insufficient-balance.png) Not enough in the wallet |
 | ![Wallet](docs/design/screenshots/05-wallet-audit.png) Wallet and audit trail | ![Guest detail](docs/design/screenshots/06-guest-detail.png) Guest detail |
 | ![Guests](docs/design/screenshots/07-guests.png) Guests | ![Bookings](docs/design/screenshots/08-bookings.png) Bookings |
-| ![Second check-in](docs/design/screenshots/09-second-check-in-blocked.png) Second check-in blocked | ![Map](docs/design/screenshots/10-map.png) Map |
-| ![Reviews](docs/design/screenshots/11-reviews.png) Reviews filtered by tag | ![Analytics](docs/design/screenshots/12-analytics.png) Analytics |
+| ![Second check-in](docs/design/screenshots/09-second-check-in-blocked.png) Second check-in blocked | ![Map](docs/design/screenshots/10-map.png) Map with the hotspot panel (manager) |
+| ![Review insights](docs/design/screenshots/11-reviews.png) Review insights filtered by tag | ![Analytics](docs/design/screenshots/12-analytics.png) Analytics |
 | ![Phone](docs/design/screenshots/13-phone-properties.png) Phone width | ![Phone, dark](docs/design/screenshots/14-phone-map-dark.png) Map hotspots on a phone, dark mode |
+| ![Property reviews](docs/design/screenshots/15-property-reviews.png) A property's reviews | |
 
 ## Tech choices
 
@@ -153,12 +157,12 @@ The screen plan and wireframes are in [`docs/design/screens.md`](docs/design/scr
 
 ## Assumptions
 
-- **No accounts.** The role and guest switcher stands in for login, and the API trusts the `guest_id` it receives. Any user can act as any guest.
+- **No real accounts.** Logging in means choosing a seeded guest, with no password, and the API trusts the `guest_id` it receives. The role switch stands in for staff sign-in. Hiding pages by role is a front-end convenience, not security.
 - **Prices and money.** Every amount is in Indian rupees with two decimals. A stay costs `base_price * nights`. A booking has a number of nights but no calendar dates, so there is no availability check and two guests can book the same property at once.
 - **Payment.** The wallet is the only way to pay. A top-up adds any positive amount with at most two decimals, with no payment gateway behind it.
 - **Booking statuses.** A booking moves only forward: CONFIRMED, then CHECKED_IN, then COMPLETED. There is no cancellation or refund. A guest can have only one CHECKED_IN booking at a time, which the partial unique index enforces.
-- **Who does what.** Guests book, top up and see their own bookings. Managers see all guests and bookings and move bookings through their statuses. Both can read reviews and the map.
-- **Revenue.** Analytics counts COMPLETED bookings only. The materialized view changes only when someone presses **Refresh view**, and the page shows when that last happened.
+- **Who does what.** Guests book, top up and see their own bookings and wallet. Managers see all guests, bookings and wallets, move bookings through their statuses (check-in happens at the front desk) and see revenue. Managers do not book or top up. Everyone can browse properties, a property's reviews and the map. Site-wide review insights are for managers.
+- **Revenue.** Analytics counts COMPLETED bookings only. The materialized view changes only when someone presses **Update figures**, and the page shows when that last happened.
 - **Dates.** The moving average and the audit date filter use UTC days. Timestamps show in the viewer's time zone.
 - **Map.** Search pins expire 2 hours after they are created (the TTL index), so the map needs the live seeder or dropped pins during a demo. The search area is a fixed 5 km circle, centred on IIIT Hyderabad unless the user picks another point.
 - **Reviews.** Reviews come from the seed data and are read-only in the UI. A tag's frequency is the number of reviews that carry it.

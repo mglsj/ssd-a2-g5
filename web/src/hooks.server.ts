@@ -36,7 +36,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 			{
 				error: {
 					code: "DB_UNAVAILABLE",
-					message: "The web server could not reach the API.",
+					message: "StaySpot is not responding. Try again in a moment.",
 					detail: { service: "api" },
 				},
 			},

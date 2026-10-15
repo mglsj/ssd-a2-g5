@@ -20,8 +20,10 @@
 	import { IIIT } from '#lib/map/theme.svelte.js';
 	import { enumParam, intParam, setParams, stringParam } from '#lib/url.js';
 	import { page } from '$app/state';
+	import { getActor } from '#lib/state/actor.svelte.js';
 
 	const RADIUS = 5000;
+	const actor = getActor();
 
 	const sorts = [
 		{ value: 'title', label: 'Title' },
@@ -37,8 +39,11 @@
 	const maxPrice = $derived(stringParam('max_price'));
 	const near = $derived(page.url.searchParams.get('near') === 'iiit');
 	const requestedSort = $derived(enumParam<Sort>('sort', sorts.map((s) => s.value), near ? 'distance' : 'title'));
-	// Distance needs a centre, so without "Near IIIT" it falls back to title.
-	const sort = $derived(requestedSort === 'distance' && !near ? 'title' : requestedSort);
+	// Distance needs a centre, so without "Near IIIT" it falls back to title. Revenue is for managers.
+	const sort = $derived(
+		(requestedSort === 'distance' && !near) || (requestedSort === 'revenue' && !actor.isManager) ? 'title' : requestedSort
+	);
+	const sortOptions = $derived(sorts.filter((s) => s.value !== 'revenue' || actor.isManager));
 	const pageNumber = $derived(intParam('page', 1));
 
 	function priceError(value: string): string | undefined {
@@ -137,7 +142,7 @@
 		<Select.Root type="single" value={sort} onValueChange={(value) => setParams({ sort: value === 'title' ? null : value })}>
 			<Select.Trigger id="property-sort" class="w-48">{sortLabel}</Select.Trigger>
 			<Select.Content>
-				{#each sorts as option (option.value)}
+				{#each sortOptions as option (option.value)}
 					<Select.Item value={option.value} label={option.label} disabled={option.value === 'distance' && !near}>
 						{option.label}
 						{#if option.value === 'distance' && !near}

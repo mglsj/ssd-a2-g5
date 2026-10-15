@@ -39,18 +39,10 @@
 		<Alert.Title>{conflict.attempted.guest_name} is already checked in</Alert.Title>
 		<Alert.Description>
 			<p>
-				{#if conflict.activeId}
-					Booking <span class="font-mono text-xs">{conflict.activeId.slice(0, 8)}</span>
-					{#if active.data}at {active.data.property_title}{/if} is still CHECKED_IN.
-				{:else}
-					{conflict.message}.
-				{/if}
-				Complete that stay before checking {firstName} in at {conflict.attempted.property_title}.
+				{firstName} is still staying {active.data ? `at ${active.data.property_title}` : 'somewhere else'}. Complete that
+				stay before checking {firstName} in at {conflict.attempted.property_title}.
 			</p>
-			<p class="text-caption">
-				The partial unique index idx_active_stay allows one CHECKED_IN booking per guest, so the database refused the
-				second check-in.
-			</p>
+			<p class="text-caption">A guest can be checked in to one stay at a time.</p>
 			<div class="mt-2 flex flex-wrap gap-2">
 				{#if conflict.activeId}
 					<Button size="sm" href="/bookings/{conflict.activeId}">

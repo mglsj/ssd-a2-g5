@@ -54,8 +54,8 @@
 	const serverFieldError = $derived.by(() => {
 		if (!topUp.isError) return undefined;
 		const error = toApiError(topUp.error);
-		if (error.code === 'INVALID_INPUT') return error.message;
-		if (error.code === 'BAD_REQUEST') return error.issues.amount ?? error.message;
+		if (error.code === 'INVALID_INPUT') return /amount/i.test(error.message) ? error.message : 'Enter a smaller amount.';
+		if (error.code === 'BAD_REQUEST') return 'Enter an amount in rupees, like 500 or 1250.50.';
 		return undefined;
 	});
 	const fieldError = $derived(touched ? (localError ?? serverFieldError) : undefined);
@@ -82,7 +82,7 @@
 			Wallet topped up
 		</Dialog.Title>
 		<Dialog.Description>
-			sp_top_up_wallet added <Money value={result.audit_log.amount_changed} /> to {guestName ?? 'the wallet'}.
+			Added <Money value={result.audit_log.amount_changed} /> to {guestName ? `${guestName}'s wallet` : 'the wallet'}.
 		</Dialog.Description>
 	</Dialog.Header>
 	<div class="flex flex-col gap-4">
@@ -101,7 +101,7 @@
 		<Dialog.Header>
 			<Dialog.Title>Top up wallet</Dialog.Title>
 			<Dialog.Description>
-				{guestName ? `Adds money to ${guestName}'s wallet.` : 'Adds money to the wallet.'} It writes a CREDIT row to the audit log.
+				{guestName ? `Add money to ${guestName}'s wallet.` : 'Add money to the wallet.'} It is ready to spend straight away.
 			</Dialog.Description>
 		</Dialog.Header>
 

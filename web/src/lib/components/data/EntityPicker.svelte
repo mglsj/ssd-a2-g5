@@ -7,7 +7,7 @@
 	import { Label } from '#lib/components/shadcn/label/index.js';
 	import * as Popover from '#lib/components/shadcn/popover/index.js';
 	import { Spinner } from '#lib/components/shadcn/spinner/index.js';
-	import { toApiError } from '#lib/api/errors.js';
+	import { userMessage } from '#lib/api/errors.js';
 	import { queries } from '#lib/api/queries.js';
 	import { rupees } from '#lib/format.js';
 	import { cn } from '#lib/utils.js';
@@ -122,7 +122,7 @@
 								</div>
 							</Command.Loading>
 						{:else if results.isError}
-							<p class="text-destructive px-2 py-3 text-sm">{toApiError(results.error).message}</p>
+							<p class="text-destructive px-2 py-3 text-sm">{userMessage(results.error)}</p>
 						{:else if options.length === 0}
 							<p class="text-muted-foreground px-2 py-3 text-sm">Nothing matches “{debounced}”.</p>
 						{:else}

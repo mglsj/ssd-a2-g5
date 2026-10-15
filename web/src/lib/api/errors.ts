@@ -58,23 +58,49 @@ export function toApiError(error: unknown): ApiError {
 	return new ApiError(0, 'INTERNAL', error instanceof Error ? error.message : String(error));
 }
 
-export const errorInfo: Record<ErrorCode, { title: string; icon: Component }> = {
-	INSUFFICIENT_BALANCE: { title: 'Not enough in the wallet', icon: WalletIcon },
-	ALREADY_CHECKED_IN: { title: 'Guest is already checked in', icon: BedDoubleIcon },
-	INVALID_TRANSITION: { title: 'That status change is not allowed', icon: ArrowRightLeftIcon },
-	NOT_FOUND: { title: 'Not found', icon: SearchXIcon },
-	BAD_REQUEST: { title: 'Check the form', icon: PencilLineIcon },
-	INVALID_INPUT: { title: 'Check the form', icon: PencilLineIcon },
-	DB_UNAVAILABLE: { title: 'A database is down', icon: DatabaseIcon },
-	INTERNAL: { title: 'Something went wrong', icon: CircleAlertIcon }
+/** A title, icon and plain-language explanation for each error code. */
+export const errorInfo: Record<ErrorCode, { title: string; icon: Component; text: string }> = {
+	INSUFFICIENT_BALANCE: {
+		title: 'Not enough in the wallet',
+		icon: WalletIcon,
+		text: 'The wallet does not hold enough for this. Top it up and try again.'
+	},
+	ALREADY_CHECKED_IN: {
+		title: 'Guest is already checked in',
+		icon: BedDoubleIcon,
+		text: 'This guest is checked in to another stay. Complete that stay first.'
+	},
+	INVALID_TRANSITION: {
+		title: 'That status change is not allowed',
+		icon: ArrowRightLeftIcon,
+		text: 'A stay goes from confirmed to checked in to completed, one step at a time.'
+	},
+	NOT_FOUND: { title: 'Not found', icon: SearchXIcon, text: 'It may have been removed, or the link is out of date.' },
+	BAD_REQUEST: { title: 'Check the details', icon: PencilLineIcon, text: 'Some details are not valid. Check them and try again.' },
+	INVALID_INPUT: { title: 'Check the details', icon: PencilLineIcon, text: 'Some details are not valid. Check them and try again.' },
+	DB_UNAVAILABLE: {
+		title: 'Service unavailable',
+		icon: DatabaseIcon,
+		text: 'Part of StaySpot is not responding. Try again in a moment.'
+	},
+	INTERNAL: { title: 'Something went wrong', icon: CircleAlertIcon, text: 'Something went wrong on our side. Try again in a moment.' }
 };
 
 /** The title and icon for an error. The /api proxy marks an unreachable API with detail.service. */
 export function describeError(error: ApiError): { title: string; icon: Component } {
 	if (error.code === 'DB_UNAVAILABLE' && error.detail.service === 'api') {
-		return { title: 'The API is down', icon: errorInfo.DB_UNAVAILABLE.icon };
+		return { title: 'StaySpot is unavailable', icon: errorInfo.DB_UNAVAILABLE.icon };
 	}
 	return errorInfo[error.code];
+}
+
+/** The text to show for an error. The API's own messages are written for developers, not for people using the app. */
+export function userMessage(error: unknown): string {
+	const apiError = toApiError(error);
+	if (apiError.code === 'DB_UNAVAILABLE' && apiError.detail.service === 'api') {
+		return 'StaySpot is not responding. Try again in a moment.';
+	}
+	return errorInfo[apiError.code].text;
 }
 
 /** Errors worth retrying automatically. A 4xx will fail the same way again. */

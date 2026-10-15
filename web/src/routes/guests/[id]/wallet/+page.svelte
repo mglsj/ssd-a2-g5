@@ -25,10 +25,15 @@
 	import { PAGE_SIZE, queries, type AuditPage, type AuditQuery } from '#lib/api/queries.js';
 	import { count, date, dateTime, fromPaise, toPaise } from '#lib/format.js';
 	import { enumParam, intParam, setParams, stringParam } from '#lib/url.js';
+	import { getActor } from '#lib/state/actor.svelte.js';
+	import AccessGate from '#lib/components/app/AccessGate.svelte';
 
 	type Row = AuditPage['items'][number];
 
 	const id = $derived(page.params.id ?? '');
+	const actor = getActor();
+	// A guest sees only their own wallet. Managers can read any wallet.
+	const notOwn = $derived(!actor.isManager && actor.guestId !== null && actor.guestId !== id);
 	const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 	const from = $derived(DATE.test(stringParam('from')) ? stringParam('from') : '');
@@ -74,7 +79,7 @@
 				? `since ${date(usedFrom)}`
 				: usedTo
 					? `up to ${date(usedTo)}`
-					: 'all time'
+					: 'all transactions'
 	);
 </script>
 
@@ -84,137 +89,155 @@
 {#snippet balance(row: Row)}<Money value={row.balance_after} />{/snippet}
 
 <svelte:head>
-	<title>{guest.data ? `${guest.data.name}'s wallet` : 'Wallet'} · StaySpot</title>
+	<title>{guest.data && (actor.isManager || actor.guestId === id) ? `${guest.data.name}'s wallet` : 'Wallet'} · StaySpot</title>
 </svelte:head>
 
-<nav aria-label="Breadcrumb" class="text-body-sm -mb-4">
-	<ol class="flex flex-wrap items-center gap-1.5">
-		<li><a href="/guests/{id}">{guest.data?.name ?? 'Guest'}</a></li>
-		<li aria-hidden="true" class="text-faint">/</li>
-		<li aria-current="page" class="text-muted-foreground">Wallet</li>
-	</ol>
-</nav>
-
-{#if guest.isError && toApiError(guest.error).code === 'NOT_FOUND'}
-	<EmptyState icon={SearchXIcon} title="Guest not found" description="There is no guest with this id. A reseed replaces every guest.">
-		<Button href="/guests">
-			<ArrowLeftIcon data-icon="inline-start" />
-			Back to guests
-		</Button>
-	</EmptyState>
+{#if !actor.isManager && !actor.signedIn}
+	<AccessGate kind="login" what="your wallet" />
 {:else}
-	<PageHeader title="Wallet and audit trail" eyebrow={guest.data?.name ?? 'Guest'} description="Every change to the wallet, as written by the audit trigger. The log is append-only." />
-
-	<div class="grid items-stretch gap-4 md:grid-cols-[18rem_minmax(0,1fr)]">
-		<Card.Root>
-			<Card.Header>
-				<Card.Description>Balance now</Card.Description>
-				<Card.Title class="text-heading-2">
-					{#if guest.data}
-						<Money value={guest.data.wallet_balance} />
-					{:else if guest.isPending}
-						<Skeleton class="h-8 w-40" />
-					{:else}
-						<span class="text-muted-foreground text-body-md">Unavailable</span>
-					{/if}
-				</Card.Title>
-			</Card.Header>
-			<Card.Footer>
-				<Button onclick={() => (topUpOpen = true)} disabled={!guest.data}>
-					<PlusIcon data-icon="inline-start" />
-					Top up
-				</Button>
-			</Card.Footer>
-		</Card.Root>
-
-		<Card.Root>
-			<Card.Content class="flex flex-col gap-4">
-				<FilterBar active={filtered} onclear={() => setParams({ from: null, to: null })} label="Filter the audit trail">
-					<div class="flex flex-col gap-1.5">
-						<Label for="audit-from">From</Label>
-						<Input id="audit-from" type="date" class="w-40" value={from} max={to || undefined} onchange={(event) => setParams({ from: event.currentTarget.value })} />
-					</div>
-					<div class="flex flex-col gap-1.5">
-						<Label for="audit-to">To</Label>
-						<Input
-							id="audit-to"
-							type="date"
-							class="w-40"
-							value={to}
-							min={from || undefined}
-							aria-invalid={rangeError ? 'true' : undefined}
-							aria-describedby={rangeError ? 'audit-range-error' : undefined}
-							onchange={(event) => setParams({ to: event.currentTarget.value })}
-						/>
-					</div>
-					<div class="flex flex-col gap-1.5">
-						<Label for="audit-order">Order</Label>
-						<Select.Root type="single" value={order} onValueChange={(value) => setParams({ order: value === 'desc' ? null : value })}>
-							<Select.Trigger id="audit-order" class="w-36">{orders.find((o) => o.value === order)?.label}</Select.Trigger>
-							<Select.Content>
-								{#each orders as option (option.value)}
-									<Select.Item value={option.value} label={option.label} />
-								{/each}
-							</Select.Content>
-						</Select.Root>
-					</div>
-				</FilterBar>
-				{#if rangeError}
-					<p id="audit-range-error" class="text-caption text-destructive">{rangeError}</p>
-				{/if}
-
-				{#if audit.data}
-					{@const net = fromPaise(toPaise(audit.data.closing_balance) - toPaise(audit.data.opening_balance))}
-					<div class="flex flex-col gap-1" aria-live="polite">
-						<p class="text-body-md flex flex-wrap items-baseline gap-x-2 gap-y-1">
-							<span>Opening <Money value={audit.data.opening_balance} class="font-semibold" /></span>
-							<span aria-hidden="true">+</span>
-							<span>
-								{count(audit.data.total)} {audit.data.total === 1 ? 'row' : 'rows'}
-								(<Money value={net} signed />)
-							</span>
-							<span aria-hidden="true">=</span>
-							<span>Closing <Money value={audit.data.closing_balance} class="font-semibold" /></span>
-						</p>
-						<p class="text-caption text-muted-foreground">
-							Opening plus every row in the range equals closing. Range: {rangeLabel}, in UTC days.
-						</p>
-					</div>
-				{:else if audit.isPending}
-					<Skeleton class="h-6 w-2/3" />
-				{/if}
-			</Card.Content>
-		</Card.Root>
-	</div>
-
-	{#if guest.isError}
-		<ErrorState error={guest.error} onretry={() => guest.refetch()} retrying={guest.isFetching} />
+	{#if actor.isManager}
+		<nav aria-label="Breadcrumb" class="text-body-sm -mb-4">
+			<ol class="flex flex-wrap items-center gap-1.5">
+				<li><a href="/guests/{id}">{guest.data?.name ?? 'Guest'}</a></li>
+				<li aria-hidden="true" class="text-faint">/</li>
+				<li aria-current="page" class="text-muted-foreground">Wallet</li>
+			</ol>
+		</nav>
 	{/if}
 
-	<QueryBoundary query={audit} isEmpty={(data) => data.items.length === 0}>
-		{#snippet loading()}
-			<div class="flex flex-col gap-2">
-				{#each { length: 6 }, i (i)}<Skeleton class="h-12 w-full" />{/each}
-			</div>
-		{/snippet}
-		{#snippet empty()}
-			<EmptyState
-				icon={CalendarXIcon}
-				title={filtered ? 'No wallet activity between these dates' : pageNumber > 1 ? 'No rows on this page' : 'No wallet activity yet'}
-				description={filtered ? 'Try a wider range, or clear the dates.' : 'Top-ups and bookings add rows here.'}
-			>
-				{#if filtered}
-					<Button onclick={() => setParams({ from: null, to: null })}>Clear dates</Button>
-				{:else if pageNumber > 1}
-					<Button variant="outline" onclick={() => setParams({ page: null })}>Go to page 1</Button>
-				{/if}
-			</EmptyState>
-		{/snippet}
-		{#snippet children(data)}
-			<DataTable items={data.items} {columns} getKey={(row) => row.id} caption="Wallet audit trail" />
-			<Pager page={data.page} limit={data.limit} total={data.total} noun="rows" />
-		{/snippet}
-	</QueryBoundary>
+	{#if notOwn}
+		<EmptyState icon={SearchXIcon} title="Wallet not found" description="This wallet belongs to another account.">
+			<Button href="/guests/{actor.guestId}/wallet">
+				<ArrowLeftIcon data-icon="inline-start" />
+				Go to your wallet
+			</Button>
+		</EmptyState>
+	{:else if guest.isError && toApiError(guest.error).code === 'NOT_FOUND'}
+		<EmptyState icon={SearchXIcon} title="Guest not found" description="This guest does not exist, or the link is out of date.">
+			<Button href="/guests">
+				<ArrowLeftIcon data-icon="inline-start" />
+				Back to guests
+			</Button>
+		</EmptyState>
+	{:else}
+		<PageHeader title="Wallet" eyebrow={guest.data?.name ?? 'Guest'} description="Every top-up and payment, with the balance after each one." />
 
-	<TopUpDialog bind:open={topUpOpen} guestId={id} guestName={guest.data?.name} />
+		<div class="grid items-stretch gap-4 md:grid-cols-[18rem_minmax(0,1fr)]">
+			<Card.Root>
+				<Card.Header>
+					<Card.Description>Balance now</Card.Description>
+					<Card.Title class="text-heading-2">
+						{#if guest.data}
+							<Money value={guest.data.wallet_balance} />
+						{:else if guest.isPending}
+							<Skeleton class="h-8 w-40" />
+						{:else}
+							<span class="text-muted-foreground text-body-md">Unavailable</span>
+						{/if}
+					</Card.Title>
+				</Card.Header>
+				<!-- Only the guest tops up their own wallet. Managers see it read-only. -->
+				{#if !actor.isManager}
+					<Card.Footer>
+						<Button onclick={() => (topUpOpen = true)} disabled={!guest.data}>
+							<PlusIcon data-icon="inline-start" />
+							Top up
+						</Button>
+					</Card.Footer>
+				{/if}
+			</Card.Root>
+
+			<Card.Root>
+				<Card.Content class="flex flex-col gap-4">
+					<FilterBar active={filtered} onclear={() => setParams({ from: null, to: null })} label="Filter transactions">
+						<div class="flex flex-col gap-1.5">
+							<Label for="audit-from">From</Label>
+							<Input id="audit-from" type="date" class="w-40" value={from} max={to || undefined} onchange={(event) => setParams({ from: event.currentTarget.value })} />
+						</div>
+						<div class="flex flex-col gap-1.5">
+							<Label for="audit-to">To</Label>
+							<Input
+								id="audit-to"
+								type="date"
+								class="w-40"
+								value={to}
+								min={from || undefined}
+								aria-invalid={rangeError ? 'true' : undefined}
+								aria-describedby={rangeError ? 'audit-range-error' : undefined}
+								onchange={(event) => setParams({ to: event.currentTarget.value })}
+							/>
+						</div>
+						<div class="flex flex-col gap-1.5">
+							<Label for="audit-order">Order</Label>
+							<Select.Root type="single" value={order} onValueChange={(value) => setParams({ order: value === 'desc' ? null : value })}>
+								<Select.Trigger id="audit-order" class="w-36">{orders.find((o) => o.value === order)?.label}</Select.Trigger>
+								<Select.Content>
+									{#each orders as option (option.value)}
+										<Select.Item value={option.value} label={option.label} />
+									{/each}
+								</Select.Content>
+							</Select.Root>
+						</div>
+					</FilterBar>
+					{#if rangeError}
+						<p id="audit-range-error" class="text-caption text-destructive">{rangeError}</p>
+					{/if}
+
+					{#if audit.data}
+						{@const net = fromPaise(toPaise(audit.data.closing_balance) - toPaise(audit.data.opening_balance))}
+						<div class="flex flex-col gap-1" aria-live="polite">
+							<p class="text-body-md flex flex-wrap items-baseline gap-x-2 gap-y-1">
+								<span>Opening <Money value={audit.data.opening_balance} class="font-semibold" /></span>
+								<span aria-hidden="true">+</span>
+								<span>
+									{count(audit.data.total)} {audit.data.total === 1 ? 'transaction' : 'transactions'}
+									(<Money value={net} signed />)
+								</span>
+								<span aria-hidden="true">=</span>
+								<span>Closing <Money value={audit.data.closing_balance} class="font-semibold" /></span>
+							</p>
+							<p class="text-caption text-muted-foreground">
+								Showing {rangeLabel}.
+							</p>
+						</div>
+					{:else if audit.isPending}
+						<Skeleton class="h-6 w-2/3" />
+					{/if}
+				</Card.Content>
+			</Card.Root>
+		</div>
+
+		{#if guest.isError}
+			<ErrorState error={guest.error} onretry={() => guest.refetch()} retrying={guest.isFetching} />
+		{/if}
+
+		<QueryBoundary query={audit} isEmpty={(data) => data.items.length === 0}>
+			{#snippet loading()}
+				<div class="flex flex-col gap-2">
+					{#each { length: 6 }, i (i)}<Skeleton class="h-12 w-full" />{/each}
+				</div>
+			{/snippet}
+			{#snippet empty()}
+				<EmptyState
+					icon={CalendarXIcon}
+					title={filtered ? 'No wallet activity between these dates' : pageNumber > 1 ? 'No rows on this page' : 'No wallet activity yet'}
+					description={filtered ? 'Try a wider range, or clear the dates.' : 'Top-ups and bookings add rows here.'}
+				>
+					{#if filtered}
+						<Button onclick={() => setParams({ from: null, to: null })}>Clear dates</Button>
+					{:else if pageNumber > 1}
+						<Button variant="outline" onclick={() => setParams({ page: null })}>Go to page 1</Button>
+					{/if}
+				</EmptyState>
+			{/snippet}
+			{#snippet children(data)}
+				<DataTable items={data.items} {columns} getKey={(row) => row.id} caption="Wallet transactions" />
+				<Pager page={data.page} limit={data.limit} total={data.total} noun="rows" />
+			{/snippet}
+		</QueryBoundary>
+
+		{#if !actor.isManager}
+			<TopUpDialog bind:open={topUpOpen} guestId={id} guestName={guest.data?.name} />
+		{/if}
+	{/if}
 {/if}

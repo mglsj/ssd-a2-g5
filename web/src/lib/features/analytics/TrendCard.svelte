@@ -74,9 +74,9 @@
 
 <Card.Root class="h-full">
 	<Card.Header>
-		<Card.Title>7-day moving average revenue</Card.Title>
+		<Card.Title>Revenue trend</Card.Title>
 		<Card.Description>
-			fn_property_moving_avg over a gap-free daily grid of completed bookings{custom ? '' : ', top 5 by rank'}
+			Average daily revenue over the previous 7 days{custom ? '' : ', for the top 5 properties'}
 		</Card.Description>
 	</Card.Header>
 	<Card.Content class="flex flex-col gap-4">
@@ -144,12 +144,12 @@
 					<MovingAverageChart
 						{series}
 						legend={false}
-						label="7-day moving average revenue for {series.length} properties, {longDay(data.from)} to {longDay(data.to)}"
+						label="Revenue trend for {series.length} properties, {longDay(data.from)} to {longDay(data.to)}"
 					/>
 				{:else}
 					<ScrollArea class="h-[340px] rounded-md border">
 						<Table.Root>
-							<Table.Caption class="sr-only">7-day moving average revenue per day</Table.Caption>
+							<Table.Caption class="sr-only">Revenue trend per day</Table.Caption>
 							<Table.Header class="bg-card sticky top-0 z-10">
 								<Table.Row>
 									<Table.Head>Day</Table.Head>

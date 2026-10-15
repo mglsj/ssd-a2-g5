@@ -19,7 +19,11 @@
 <script lang="ts">
 	import Building2Icon from '@lucide/svelte/icons/building-2';
 	import MapPinIcon from '@lucide/svelte/icons/map-pin';
-	import { distance, rupees } from '#lib/format.js';
+	import StarIcon from '@lucide/svelte/icons/star';
+	import { createQuery } from '@tanstack/svelte-query';
+	import { Skeleton } from '#lib/components/shadcn/skeleton/index.js';
+	import { queries } from '#lib/api/queries.js';
+	import { count, distance, rupees } from '#lib/format.js';
 	import { cn } from '#lib/utils.js';
 	import { photoFor, photoSrcset, photoUrl } from './photos.js';
 
@@ -33,6 +37,10 @@
 
 	const photo = $derived(photoFor(property.id));
 	let failed = $state(false);
+
+	// The same review summary the property page shows, so opening the card reuses it.
+	const reviews = createQuery(() => ({ ...queries.reviews.facets(property.id), staleTime: 5 * 60_000 }));
+	const summary = $derived(reviews.data?.overall_summary);
 </script>
 
 <a
@@ -60,7 +68,7 @@
 	</div>
 	<div class="flex flex-1 flex-col gap-1.5 p-4">
 		<h2 class="text-title line-clamp-2 group-hover:underline">{property.title}</h2>
-		<p class="text-body-sm text-ink-secondary flex flex-wrap items-center gap-x-2">
+		<div class="text-body-sm text-ink-secondary mt-auto flex flex-wrap items-center gap-x-2">
 			<span><span class="text-foreground font-medium tabular-nums">{rupees(property.base_price, { whole: true })}</span> / night</span>
 			{#if property.distance_meters !== null}
 				<span aria-hidden="true">·</span>
@@ -69,6 +77,21 @@
 					{distance(property.distance_meters)}<span class="sr-only"> from IIIT Hyderabad</span>
 				</span>
 			{/if}
-		</p>
+			<span class="ms-auto inline-flex items-center gap-1">
+				{#if reviews.isPending}
+					<Skeleton class="h-4 w-14" />
+				{:else if summary && summary.total_reviews > 0 && summary.overall_avg_rating !== null}
+					<StarIcon class="fill-rating text-rating size-3.5" aria-hidden="true" />
+					<span aria-hidden="true" class="text-foreground font-medium tabular-nums">{summary.overall_avg_rating.toFixed(1)}</span>
+					<span aria-hidden="true" class="tabular-nums">({count(summary.total_reviews)})</span>
+					<span class="sr-only">
+						Rated {summary.overall_avg_rating.toFixed(1)} out of 5 from {count(summary.total_reviews)}
+						{summary.total_reviews === 1 ? 'review' : 'reviews'}
+					</span>
+				{:else if reviews.isSuccess}
+					<span class="text-muted-foreground">No reviews yet</span>
+				{/if}
+			</span>
+		</div>
 	</div>
 </a>

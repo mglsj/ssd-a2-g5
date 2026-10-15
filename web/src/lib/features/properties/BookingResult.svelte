@@ -27,26 +27,22 @@
 			<span aria-hidden="true">·</span>
 			<StatusBadge status={booking.status} />
 			<span aria-hidden="true">·</span>
-			<span class="font-mono text-xs">booking {booking.id.slice(0, 8)}</span>
+			<span>Ref. <span class="font-mono text-xs">{booking.id.slice(0, 8).toUpperCase()}</span></span>
 		</Card.Description>
 	</Card.Header>
 	<Card.Content class="flex flex-col gap-5">
 		<div class="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
 			<div class="bg-muted flex flex-col gap-1 rounded-md p-3">
-				<span class="text-eyebrow text-muted-foreground uppercase">Before</span>
+				<span class="text-eyebrow text-muted-foreground uppercase">Wallet before</span>
 				<Money value={result.balance_before} class="text-body-md font-semibold" />
 			</div>
 			<ArrowRightIcon class="text-muted-foreground size-4" aria-label="to" />
 			<div class="bg-muted flex flex-col gap-1 rounded-md p-3">
-				<span class="text-eyebrow text-muted-foreground uppercase">After</span>
+				<span class="text-eyebrow text-muted-foreground uppercase">Wallet after</span>
 				<Money value={result.balance_after} class="text-body-md font-semibold" />
 			</div>
 		</div>
 		<AuditRow entry={result.audit_log} />
-		<p class="text-caption text-muted-foreground">
-			sp_execute_booking charged the wallet, inserted the booking and the trigger wrote the audit row in one
-			transaction. All of it commits together, or none of it does.
-		</p>
 	</Card.Content>
 	<Card.Footer class="flex flex-wrap gap-2">
 		<Button href="/bookings/{booking.id}">View booking</Button>

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import MinusIcon from '@lucide/svelte/icons/minus';
 	import PlusIcon from '@lucide/svelte/icons/plus';
-	import UserRoundIcon from '@lucide/svelte/icons/user-round';
+	import LogInIcon from '@lucide/svelte/icons/log-in';
 	import WalletIcon from '@lucide/svelte/icons/wallet';
 	import { createMutation, createQuery, useQueryClient } from '@tanstack/svelte-query';
 	import * as Alert from '#lib/components/shadcn/alert/index.js';
@@ -20,9 +20,15 @@
 	import { fromPaise, rupees, toPaise } from '#lib/format.js';
 	import BookingResult from './BookingResult.svelte';
 
-	type Props = { property: PropertyDetail; guestId: string | null; isManager: boolean };
+	type Props = {
+		property: PropertyDetail;
+		/** The logged-in guest, or null for a visitor who has not logged in. */
+		guestId: string | null;
+		/** Opens the login dialog. */
+		onlogin: () => void;
+	};
 
-	let { property, guestId, isManager }: Props = $props();
+	let { property, guestId, onlogin }: Props = $props();
 
 	const queryClient = useQueryClient();
 	const MIN = 1;
@@ -138,41 +144,35 @@
 					<dd class="text-right"><Money value={cost} /></dd>
 					<dt class="font-medium">Total</dt>
 					<dd class="text-right font-semibold"><Money value={cost} /></dd>
-					<div class="col-span-2"><Separator /></div>
-					<dt class="text-muted-foreground flex items-center gap-1.5">
-						<WalletIcon class="size-3.5" aria-hidden="true" />
-						{guest.data ? `${guest.data.name}'s wallet` : 'Wallet'}
-					</dt>
-					<dd class="text-right">
-						{#if guestId === null}
-							<span class="text-muted-foreground">No guest</span>
-						{:else if guest.data}
-							<Money value={guest.data.wallet_balance} />
-						{:else if guest.isPending}
-							<Skeleton class="ml-auto h-4 w-20" />
-						{:else}
-							<span class="text-muted-foreground">Unavailable</span>
-						{/if}
-					</dd>
+					{#if guestId !== null}
+						<div class="col-span-2"><Separator /></div>
+						<dt class="text-muted-foreground flex items-center gap-1.5">
+							<WalletIcon class="size-3.5" aria-hidden="true" />
+							{guest.data ? `${guest.data.name}'s wallet` : 'Wallet'}
+						</dt>
+						<dd class="text-right">
+							{#if guest.data}
+								<Money value={guest.data.wallet_balance} />
+							{:else if guest.isPending}
+								<Skeleton class="ml-auto h-4 w-20" />
+							{:else}
+								<span class="text-muted-foreground">Unavailable</span>
+							{/if}
+						</dd>
+					{/if}
 				</dl>
 
 				{#if guestId === null}
-					<p class="text-caption text-muted-foreground flex items-start gap-2" id="book-hint">
-						<UserRoundIcon class="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
-						Pick a guest in the header to book{isManager ? ' on their behalf' : ''}.
-					</p>
+					<Button type="button" size="lg" class="w-full" onclick={onlogin}>
+						<LogInIcon data-icon="inline-start" />
+						Log in to continue
+					</Button>
+				{:else}
+					<Button type="submit" size="lg" class="w-full" disabled={!!nightsError || book.isPending}>
+						{#if book.isPending}<Spinner data-icon="inline-start" />{/if}
+						Book for {rupees(cost, { whole: costPaise % 100 === 0 })}
+					</Button>
 				{/if}
-
-				<Button
-					type="submit"
-					size="lg"
-					class="w-full"
-					disabled={guestId === null || !!nightsError || book.isPending}
-					aria-describedby={guestId === null ? 'book-hint' : undefined}
-				>
-					{#if book.isPending}<Spinner data-icon="inline-start" />{/if}
-					Book for {rupees(cost, { whole: costPaise % 100 === 0 })}
-				</Button>
 			</form>
 		</Card.Content>
 
@@ -183,7 +183,10 @@
 						<WalletIcon />
 						<Alert.Title>Not enough in the wallet</Alert.Title>
 						<Alert.Description>
-							<p>{failure.message}.</p>
+							<p>
+								This stay costs <Money value={String(failure.detail.total_cost ?? cost)} class="font-medium" />, which is
+								more than the wallet holds.
+							</p>
 							<p>
 								Nothing was charged. The wallet still holds
 								{#if guest.isFetching}

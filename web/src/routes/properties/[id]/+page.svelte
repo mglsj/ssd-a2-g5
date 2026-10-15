@@ -12,14 +12,16 @@
 	import EmptyState from '#lib/components/states/EmptyState.svelte';
 	import ErrorState from '#lib/components/states/ErrorState.svelte';
 	import BookingPanel from '#lib/features/properties/BookingPanel.svelte';
+	import PropertyPerformance from '#lib/features/properties/PropertyPerformance.svelte';
 	import PropertyPhoto from '#lib/features/properties/PropertyPhoto.svelte';
 	import PropertyReviews from '#lib/features/properties/PropertyReviews.svelte';
 	import { toApiError } from '#lib/api/errors.js';
 	import { queries } from '#lib/api/queries.js';
-	import { count } from '#lib/format.js';
+	import { getActor } from '#lib/state/actor.svelte.js';
 
 	const id = $derived(page.params.id ?? '');
 	const property = createQuery(() => queries.properties.detail(id));
+	const actor = getActor();
 	const amenities = createQuery(() => queries.properties.amenities(id));
 </script>
 
@@ -43,7 +45,7 @@
 	</div>
 {:else if property.isError}
 	{#if toApiError(property.error).code === 'NOT_FOUND'}
-		<EmptyState icon={SearchXIcon} title="Property not found" description="There is no property with this id. It may have been removed by a reseed.">
+		<EmptyState icon={SearchXIcon} title="Property not found" description="This property does not exist, or the link is out of date.">
 			<Button href="/properties">
 				<ArrowLeftIcon data-icon="inline-start" />
 				Back to properties
@@ -58,13 +60,6 @@
 		<h1 class="text-heading-2 sm:text-heading-1 text-balance">{p.title}</h1>
 		<p class="text-body-md text-ink-secondary flex flex-wrap gap-x-3 gap-y-1">
 			<span><Money value={p.base_price} class="text-foreground font-medium" /> / night</span>
-			<span aria-hidden="true">·</span>
-			<span>{count(p.summary.completed_bookings)} completed stays</span>
-			<span aria-hidden="true">·</span>
-			<span><Money value={p.summary.gross_revenue} whole /> earned</span>
-		</p>
-		<p class="text-caption text-muted-foreground">
-			Stay and revenue numbers come from mv_property_summary, as of its last refresh.
 		</p>
 	</header>
 
@@ -78,15 +73,19 @@
 			<Card.Root>
 				<Card.Header>
 					<Card.Title>Location</Card.Title>
-					<Card.Description>The property and a 5 km search area around it</Card.Description>
+					<Card.Description>Where the stay is, and what is nearby</Card.Description>
 				</Card.Header>
 				<Card.Content>
-					<MiniMap lat={p.latitude} lng={p.longitude} label="Map of {p.title} and a 5 km area around it" class="h-72" />
+					<MiniMap lat={p.latitude} lng={p.longitude} label="Map of the area around {p.title}" class="h-72" />
 				</Card.Content>
 			</Card.Root>
 		</div>
-		<aside class="flex flex-col gap-4 lg:sticky lg:top-32" aria-label="Booking">
-			<BookingPanel property={p} />
+		<aside class="flex flex-col gap-4 lg:sticky lg:top-32" aria-label={actor.isManager ? 'Performance' : 'Booking'}>
+			{#if actor.isManager}
+				<PropertyPerformance property={p} />
+			{:else}
+				<BookingPanel property={p} />
+			{/if}
 		</aside>
 	</div>
 {/if}

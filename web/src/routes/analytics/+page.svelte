@@ -1,5 +1,5 @@
 <script lang="ts">
-	import DatabaseZapIcon from '@lucide/svelte/icons/database-zap';
+	import ClockIcon from '@lucide/svelte/icons/clock';
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
 	import { createMutation, createQuery, useQueryClient } from '@tanstack/svelte-query';
 	import { toast } from 'svelte-sonner';
@@ -18,10 +18,14 @@
 	import RankingCard from '#lib/features/analytics/RankingCard.svelte';
 	import SummaryTiles from '#lib/features/analytics/SummaryTiles.svelte';
 	import TrendCard from '#lib/features/analytics/TrendCard.svelte';
-	import { toApiError } from '#lib/api/errors.js';
+	import { userMessage } from '#lib/api/errors.js';
 	import { keys, mutations, PAGE_SIZE, queries, type SummaryPage } from '#lib/api/queries.js';
 	import { count, dateTime, relative } from '#lib/format.js';
 	import { dateParam, enumParam, intParam, listParam, setParams } from '#lib/url.js';
+	import AccessGate from '#lib/components/app/AccessGate.svelte';
+	import { getActor } from '#lib/state/actor.svelte.js';
+
+	const actor = getActor();
 
 	type Row = SummaryPage['items'][number];
 
@@ -62,13 +66,11 @@
 				queryClient.invalidateQueries({ queryKey: keys.analytics.all }),
 				queryClient.invalidateQueries({ queryKey: keys.properties.all })
 			]);
-			toast.success('Summary refreshed', {
-				description: `REFRESH MATERIALIZED VIEW CONCURRENTLY finished at ${dateTime(result.refreshed_at)}.`
-			});
+			toast.success('Figures updated', { description: `Up to date as of ${dateTime(result.refreshed_at)}.` });
 		},
 		onError: (error) => {
 			before = null;
-			toast.error('The refresh failed', { description: toApiError(error).message });
+			toast.error('Could not update the figures', { description: userMessage(error) });
 		}
 	}));
 
@@ -97,108 +99,112 @@
 	<title>Analytics · StaySpot</title>
 </svelte:head>
 
-<PageHeader title="Analytics" description="Revenue from completed bookings across all 1,000 properties.">
-	{#snippet actions()}
-		<div class="flex flex-col items-start gap-1.5 sm:items-end">
-			<Button variant="outline" onclick={() => refresh.mutate()} disabled={refresh.isPending || summary.isPending}>
-				{#if refresh.isPending}
-					<Spinner data-icon="inline-start" />
-					Refreshing
-				{:else}
-					<RefreshCwIcon data-icon="inline-start" />
-					Refresh view
-				{/if}
-			</Button>
-			<p class="text-caption text-muted-foreground" aria-live="polite">
-				{#if summary.data?.refreshed_at}
-					Summary refreshed
-					<time datetime={summary.data.refreshed_at} title={dateTime(summary.data.refreshed_at)}>
-						{relative(summary.data.refreshed_at)}
-					</time>
-				{:else if summary.data}
-					Summary never refreshed
-				{:else}
-					&nbsp;
-				{/if}
-			</p>
-		</div>
-	{/snippet}
-</PageHeader>
-
-<section class="flex flex-col gap-3" aria-labelledby="totals-heading">
-	<div class="flex flex-wrap items-baseline justify-between gap-2">
-		<h2 id="totals-heading" class="text-title">Totals</h2>
-		<p class="text-caption text-muted-foreground flex items-center gap-1.5">
-			<DatabaseZapIcon class="size-3.5" aria-hidden="true" />
-			mv_property_summary, a materialized view. New completed stays appear only after a refresh.
-		</p>
-	</div>
-	{#if summary.isError && !summary.data}
-		<ErrorState error={summary.error} onretry={() => summary.refetch()} retrying={summary.isFetching} />
-	{:else}
-		<SummaryTiles totals={summary.data?.totals} before={changed ? before : null} />
-		{#if before !== null && !refresh.isPending && summary.data && !changed}
-			<p class="text-caption text-muted-foreground">
-				The refresh found no change. Complete a booking on the bookings page, then refresh again.
-			</p>
-		{/if}
-	{/if}
-</section>
-
-<div class="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
-	<TrendCard
-		{propertyIds}
-		{from}
-		{to}
-		{view}
-		onchange={(next) => setParams({ ...next, view: next.view === 'chart' ? null : next.view }, { keepPage: true })}
-	/>
-	<RankingCard {asOf} onchange={(value) => setParams({ as_of: value }, { keepPage: true })} />
-</div>
-
-<section class="flex flex-col gap-4" aria-labelledby="per-property-heading">
-	<div class="flex flex-wrap items-end justify-between gap-3">
-		<div class="flex flex-col gap-1">
-			<h2 id="per-property-heading" class="text-title">Per property</h2>
-			<p class="text-caption text-muted-foreground">Every row of mv_property_summary, as of its last refresh.</p>
-		</div>
-		<div class="flex flex-col gap-1.5">
-			<Label for="summary-sort">Sort by</Label>
-			<Select.Root type="single" value={sort} onValueChange={(value) => setParams({ sort: value === 'gross_revenue' ? null : value })}>
-				<Select.Trigger id="summary-sort" class="w-44">{sortLabel}</Select.Trigger>
-				<Select.Content>
-					{#each sorts as option (option.value)}
-						<Select.Item value={option.value} label={option.label} />
-					{/each}
-				</Select.Content>
-			</Select.Root>
-		</div>
-	</div>
-	<QueryBoundary query={summary} isEmpty={(data) => data.items.length === 0}>
-		{#snippet loading()}
-			<div class="flex flex-col gap-2">
-				{#each { length: 8 }, i (i)}<Skeleton class="h-12 w-full" />{/each}
+{#if !actor.isManager}
+	<AccessGate kind="manager" what="analytics" />
+{:else}
+	<PageHeader title="Analytics" description="Revenue from completed stays across all properties.">
+		{#snippet actions()}
+			<div class="flex flex-col items-start gap-1.5 sm:items-end">
+				<Button variant="outline" onclick={() => refresh.mutate()} disabled={refresh.isPending || summary.isPending}>
+					{#if refresh.isPending}
+						<Spinner data-icon="inline-start" />
+						Updating…
+					{:else}
+						<RefreshCwIcon data-icon="inline-start" />
+						Update figures
+					{/if}
+				</Button>
+				<p class="text-caption text-muted-foreground" aria-live="polite">
+					{#if summary.data?.refreshed_at}
+						Figures updated
+						<time datetime={summary.data.refreshed_at} title={dateTime(summary.data.refreshed_at)}>
+							{relative(summary.data.refreshed_at)}
+						</time>
+					{:else if summary.data}
+						Figures not updated yet
+					{:else}
+						&nbsp;
+					{/if}
+				</p>
 			</div>
 		{/snippet}
-		{#snippet empty()}
-			<EmptyState
-				title={pageNumber > 1 ? 'No rows on this page' : 'The summary is empty'}
-				description={pageNumber > 1 ? 'This page is past the last property.' : 'Refresh the view to fill it.'}
-			>
-				{#if pageNumber > 1}
-					<Button variant="outline" onclick={() => setParams({ page: null })}>Go to page 1</Button>
-				{/if}
-			</EmptyState>
-		{/snippet}
-		{#snippet children(data)}
-			<DataTable
-				items={data.items}
-				{columns}
-				caption="Per-property summary"
-				getKey={(row) => row.property_id}
-				rowHref={(row) => `/properties/${row.property_id}`}
-			/>
-			<Pager page={data.page} limit={data.limit} total={data.total} noun="properties" />
-		{/snippet}
-	</QueryBoundary>
-</section>
+	</PageHeader>
+
+	<section class="flex flex-col gap-3" aria-labelledby="totals-heading">
+		<div class="flex flex-wrap items-baseline justify-between gap-2">
+			<h2 id="totals-heading" class="text-title">Totals</h2>
+			<p class="text-caption text-muted-foreground flex items-center gap-1.5">
+				<ClockIcon class="size-3.5" aria-hidden="true" />
+				Recently completed stays appear after the next update.
+			</p>
+		</div>
+		{#if summary.isError && !summary.data}
+			<ErrorState error={summary.error} onretry={() => summary.refetch()} retrying={summary.isFetching} />
+		{:else}
+			<SummaryTiles totals={summary.data?.totals} before={changed ? before : null} />
+			{#if before !== null && !refresh.isPending && summary.data && !changed}
+				<p class="text-caption text-muted-foreground">
+					No stays have been completed since the last update.
+				</p>
+			{/if}
+		{/if}
+	</section>
+
+	<div class="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+		<TrendCard
+			{propertyIds}
+			{from}
+			{to}
+			{view}
+			onchange={(next) => setParams({ ...next, view: next.view === 'chart' ? null : next.view }, { keepPage: true })}
+		/>
+		<RankingCard {asOf} onchange={(value) => setParams({ as_of: value }, { keepPage: true })} />
+	</div>
+
+	<section class="flex flex-col gap-4" aria-labelledby="per-property-heading">
+		<div class="flex flex-wrap items-end justify-between gap-3">
+			<div class="flex flex-col gap-1">
+				<h2 id="per-property-heading" class="text-title">Per property</h2>
+				<p class="text-caption text-muted-foreground">Completed stays, nights and revenue for each property.</p>
+			</div>
+			<div class="flex flex-col gap-1.5">
+				<Label for="summary-sort">Sort by</Label>
+				<Select.Root type="single" value={sort} onValueChange={(value) => setParams({ sort: value === 'gross_revenue' ? null : value })}>
+					<Select.Trigger id="summary-sort" class="w-44">{sortLabel}</Select.Trigger>
+					<Select.Content>
+						{#each sorts as option (option.value)}
+							<Select.Item value={option.value} label={option.label} />
+						{/each}
+					</Select.Content>
+				</Select.Root>
+			</div>
+		</div>
+		<QueryBoundary query={summary} isEmpty={(data) => data.items.length === 0}>
+			{#snippet loading()}
+				<div class="flex flex-col gap-2">
+					{#each { length: 8 }, i (i)}<Skeleton class="h-12 w-full" />{/each}
+				</div>
+			{/snippet}
+			{#snippet empty()}
+				<EmptyState
+					title={pageNumber > 1 ? 'No properties on this page' : 'No figures yet'}
+					description={pageNumber > 1 ? 'This page is past the last property.' : 'Update the figures to see revenue per property.'}
+				>
+					{#if pageNumber > 1}
+						<Button variant="outline" onclick={() => setParams({ page: null })}>Go to page 1</Button>
+					{/if}
+				</EmptyState>
+			{/snippet}
+			{#snippet children(data)}
+				<DataTable
+					items={data.items}
+					{columns}
+					caption="Per-property summary"
+					getKey={(row) => row.property_id}
+					rowHref={(row) => `/properties/${row.property_id}`}
+				/>
+				<Pager page={data.page} limit={data.limit} total={data.total} noun="properties" />
+			{/snippet}
+		</QueryBoundary>
+	</section>
+{/if}

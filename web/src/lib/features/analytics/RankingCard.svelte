@@ -34,7 +34,7 @@
 <Card.Root class="h-full">
 	<Card.Header>
 		<Card.Title>Revenue ranking</Card.Title>
-		<Card.Description>fn_property_revenue_rank, DENSE_RANK() over the 7-day average</Card.Description>
+		<Card.Description>Properties by average daily revenue over the 7 days up to a date</Card.Description>
 	</Card.Header>
 	<Card.Content class="flex flex-col gap-4">
 		<div class="flex flex-col gap-1.5">
@@ -61,7 +61,7 @@
 				<div class="-mx-2 overflow-x-auto">
 					<Table.Root>
 						<Table.Caption class="text-caption mt-3 text-left">
-							Ranked on {longDay(data.as_of)}. Ties share a rank and the next rank follows without a gap.
+							Ranked on {longDay(data.as_of)}. Properties with equal revenue share a rank.
 						</Table.Caption>
 						<Table.Header>
 							<Table.Row>

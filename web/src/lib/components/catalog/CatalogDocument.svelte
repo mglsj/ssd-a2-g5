@@ -31,9 +31,7 @@
 <Card.Root class={className}>
 	<Card.Header>
 		<Card.Title>{title}</Card.Title>
-		<Card.Description>
-			PropertyAmenities document from MongoDB
-		</Card.Description>
+		<Card.Description>What this stay offers, and its house rules</Card.Description>
 		{#if doc && (typeof doc.star_rating === 'number' || typeof doc.guest_rating === 'number')}
 			<div class="flex flex-wrap gap-2 pt-1">
 				{#if typeof doc.star_rating === 'number'}
@@ -51,7 +49,7 @@
 	<Card.Content class="flex flex-col gap-5">
 		{#if query.isPending}
 			<div class="flex flex-col gap-3" role="status">
-				<span class="sr-only">Loading the catalog document</span>
+				<span class="sr-only">Loading amenities…</span>
 				<Skeleton class="h-6 w-3/4" />
 				<Skeleton class="h-4 w-full" />
 				<Skeleton class="h-4 w-2/3" />
@@ -59,8 +57,8 @@
 		{:else if query.isError}
 			{#if toApiError(query.error).code === 'NOT_FOUND'}
 				<EmptyState
-					title="No catalog document"
-					description="This property has no PropertyAmenities document in MongoDB yet."
+					title="No details yet"
+					description="This property has not listed its amenities or house rules yet."
 					class="p-6"
 				/>
 			{:else}
@@ -73,7 +71,7 @@
 					<div class="text-body-sm"><CatalogValue {value} /></div>
 				</section>
 			{:else}
-				<p class="text-body-sm text-muted-foreground">The document has no amenity fields.</p>
+				<p class="text-body-sm text-muted-foreground">No amenities listed.</p>
 			{/each}
 			{#if typeof doc?.updated_at === 'string'}
 				<p class="text-caption text-muted-foreground">Updated {relative(doc.updated_at)}</p>

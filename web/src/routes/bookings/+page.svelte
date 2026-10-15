@@ -1,6 +1,6 @@
 <script lang="ts">
 	import CalendarXIcon from '@lucide/svelte/icons/calendar-x';
-	import UserRoundIcon from '@lucide/svelte/icons/user-round';
+	import AccessGate from '#lib/components/app/AccessGate.svelte';
 	import { createQuery } from '@tanstack/svelte-query';
 	import { Button } from '#lib/components/shadcn/button/index.js';
 	import { Skeleton } from '#lib/components/shadcn/skeleton/index.js';
@@ -53,22 +53,18 @@
 	<title>{title} · StaySpot</title>
 </svelte:head>
 
-<PageHeader
-	{title}
-	description={list.data
-		? `${count(list.data.total)} ${list.data.total === 1 ? 'booking' : 'bookings'}${status ? ` ${statusLabel[status].toLowerCase()}` : ''}`
-		: actor.isManager
-			? 'Every stay, newest first'
-			: 'Your stays, newest first'}
-/>
-
 {#if waitingForGuest}
-	<EmptyState
-		icon={UserRoundIcon}
-		title="Pick a guest first"
-		description="My bookings shows the stays of the guest you act as. Choose one with the guest picker in the header."
-	/>
+	<AccessGate kind="login" what="your bookings" />
 {:else}
+	<PageHeader
+		{title}
+		description={list.data
+			? `${count(list.data.total)} ${list.data.total === 1 ? 'booking' : 'bookings'}${status ? ` ${statusLabel[status].toLowerCase()}` : ''}`
+			: actor.isManager
+				? 'Every stay, newest first'
+				: 'Your stays, newest first'}
+	/>
+
 	<FilterBar active={filtered} onclear={clearFilters} label="Filter bookings">
 		{#if actor.isManager}
 			<EntityPicker
@@ -118,7 +114,7 @@
 			</EmptyState>
 		{/snippet}
 		{#snippet children(data)}
-			<BookingsTable items={data.items} showGuest={actor.isManager} caption={title} />
+			<BookingsTable items={data.items} showGuest={actor.isManager} withActions={actor.isManager} caption={title} />
 			<Pager page={data.page} limit={data.limit} total={data.total} noun="bookings" />
 		{/snippet}
 	</QueryBoundary>

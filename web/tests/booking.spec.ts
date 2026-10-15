@@ -52,7 +52,7 @@ test('top up, then book, then see both audit rows', async ({ page, request }) =>
 
 	// The newest audit rows are the booking's debit, then the top-up's credit.
 	await page.goto(`/guests/${guest.id}/wallet`);
-	const rows = page.getByRole('table', { name: 'Wallet audit trail' }).locator('tbody tr');
+	const rows = page.getByRole('table', { name: 'Wallet transactions' }).locator('tbody tr');
 	await expect(rows.nth(0)).toContainText('Debit');
 	await expect(rows.nth(0)).toContainText(rupees(property.base_price).replace('₹', ''));
 	await expect(rows.nth(1)).toContainText('Credit');

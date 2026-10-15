@@ -52,21 +52,12 @@ test('guest screens', async ({ page, request }) => {
 	await shot(page, '03-booking-result');
 
 	await page.goto(`/guests/${rich.id}/wallet`);
-	await expect(page.getByRole('table', { name: 'Wallet audit trail' })).toBeVisible();
+	await expect(page.getByRole('table', { name: 'Wallet transactions' })).toBeVisible();
 	await shot(page, '05-wallet-audit');
 
-	await page.goto(`/guests/${rich.id}`);
-	await expect(page.getByRole('heading', { name: rich.name, level: 1 })).toBeVisible();
-	await shot(page, '06-guest-detail');
-
-	await page.goto('/map');
-	await expect(page.getByText(/Live · updated/)).toBeVisible();
-	await page.waitForTimeout(2500);
-	await shot(page, '10-map');
-
-	await page.goto('/reviews?tag=metro_station');
-	await expect(page.getByRole('button', { name: /^Metro station:/ })).toHaveAttribute('aria-pressed', 'true');
-	await shot(page, '11-reviews');
+	await page.goto(`/properties/${featured.id}/reviews`);
+	await expect(page.getByRole('heading', { name: 'Ratings' })).toBeVisible();
+	await shot(page, '15-property-reviews');
 
 	// A booking the poorest guest cannot cover.
 	const nights = Math.min(365, Math.floor(toPaise(poor.wallet_balance) / toPaise(dear.base_price)) + 1);
@@ -87,6 +78,11 @@ test('manager screens', async ({ page, request }) => {
 	await expect(page.getByRole('heading', { name: 'Guests' })).toBeVisible();
 	await shot(page, '07-guests');
 
+	const rich = await firstItem<Guest>(request, '/guests?sort=balance_desc&limit=1');
+	await page.goto(`/guests/${rich.id}`);
+	await expect(page.getByRole('heading', { name: rich.name, level: 1 })).toBeVisible();
+	await shot(page, '06-guest-detail');
+
 	await page.goto('/bookings');
 	await expect(page.getByRole('heading', { name: 'Bookings' })).toBeVisible();
 	await shot(page, '08-bookings');
@@ -105,9 +101,19 @@ test('manager screens', async ({ page, request }) => {
 	await expect(page.getByText(`${guest.name} is already checked in`)).toBeVisible();
 	await shot(page, '09-second-check-in-blocked');
 
+	// The map with the hotspot panel floating over it.
+	await page.goto('/map');
+	await expect(page.getByRole('heading', { name: /^Hotspots near/ })).toBeVisible();
+	await page.waitForTimeout(2500);
+	await shot(page, '10-map');
+
 	await page.goto('/analytics');
-	await expect(page.getByText('7-day moving average revenue')).toBeVisible();
+	await expect(page.getByText('Revenue trend')).toBeVisible();
 	await shot(page, '12-analytics', true);
+
+	await page.goto('/reviews?tag=metro_station');
+	await expect(page.getByRole('button', { name: /^Metro station:/ })).toHaveAttribute('aria-pressed', 'true');
+	await shot(page, '11-reviews');
 });
 
 test.describe('phone and dark mode', () => {
@@ -121,7 +127,7 @@ test.describe('phone and dark mode', () => {
 		await expect(page.getByRole('heading', { name: 'Properties' })).toBeVisible();
 		await shot(page, '13-phone-properties');
 
-		await prepare(page, { role: 'guest', guestId: rich.id }, 'dark');
+		await prepare(page, { role: 'manager', guestId: null }, 'dark');
 		await page.goto('/map');
 		await expect(page.getByText(/Live · updated/)).toBeVisible();
 		const hotspots = page.getByRole('button', { name: /^Hotspots \([1-9]/ });

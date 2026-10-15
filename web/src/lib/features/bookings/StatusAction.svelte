@@ -15,7 +15,7 @@
 	import { toast } from 'svelte-sonner';
 	import { Button, type ButtonSize } from '#lib/components/shadcn/button/index.js';
 	import { Spinner } from '#lib/components/shadcn/spinner/index.js';
-	import { ApiError, toApiError } from '#lib/api/errors.js';
+	import { ApiError, toApiError, userMessage } from '#lib/api/errors.js';
 	import { applyBooking, keys, mutations, type Booking } from '#lib/api/queries.js';
 	import { statusLabel } from '#lib/format.js';
 
@@ -53,11 +53,11 @@
 				const from = label(error.detail.from ?? booking.status);
 				const to = label(error.detail.to ?? step?.to);
 				toast.error('That status change is not allowed', {
-					description: `${from} → ${to} is not a valid move. Bookings go only from Confirmed to Checked in to Completed. The list has been refreshed.`
+					description: `It cannot go from ${from} to ${to}. The page now shows its latest status.`
 				});
 				queryClient.invalidateQueries({ queryKey: keys.bookings.all });
 			} else {
-				toast.error(error.message);
+				toast.error(userMessage(error));
 			}
 		}
 	}));

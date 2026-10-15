@@ -19,10 +19,15 @@ export function readStoredActor(): StoredActor {
 	}
 }
 
-/** The demo actor: who is using the app, and which guest they act as. Kept in localStorage. */
+/**
+ * The demo actor: a manager, or a guest who is logged in as one of the seeded guests or not at all.
+ * Kept in localStorage. There are no passwords: logging in means picking a guest.
+ */
 export class Actor {
 	#role = $state<Role>('guest');
 	#guestId = $state<string | null>(null);
+	/** Whether the login dialog is open. Any "Log in" button sets it. */
+	loginOpen = $state(false);
 
 	constructor() {
 		const stored = readStoredActor();
@@ -39,8 +44,12 @@ export class Actor {
 		this.#save();
 	}
 
+	/**
+	 * The logged-in guest, or null. A manager is never a guest, so this is null in manager mode.
+	 * The stored guest is kept, so switching back to guest mode logs them back in.
+	 */
 	get guestId() {
-		return this.#guestId;
+		return this.#role === 'guest' ? this.#guestId : null;
 	}
 
 	set guestId(id: string | null) {
@@ -50,6 +59,19 @@ export class Actor {
 
 	get isManager() {
 		return this.#role === 'manager';
+	}
+
+	/** A guest who has logged in. */
+	get signedIn() {
+		return this.guestId !== null;
+	}
+
+	logIn() {
+		this.loginOpen = true;
+	}
+
+	logOut() {
+		this.guestId = null;
 	}
 
 	#save() {

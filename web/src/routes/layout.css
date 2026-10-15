@@ -66,6 +66,7 @@
 	--sticker-brown: #523410;
 
 	/* Map markers for stays: the hotel pink people know from map apps, with a white icon. */
+	--rating: #f2a20c;
 	--map-lodging: #d93f78;
 	--map-lodging-foreground: #ffffff;
 
@@ -120,6 +121,7 @@
 	--chart-4: #9476de;
 	--chart-5: #df5c9f;
 
+	--rating: #fbbf24;
 	--map-lodging: #e45c8f;
 	--map-lodging-foreground: #ffffff;
 
@@ -181,6 +183,7 @@
 	--color-sticker-teal: var(--sticker-teal);
 	--color-sticker-green: var(--sticker-green);
 	--color-sticker-brown: var(--sticker-brown);
+	--color-rating: var(--rating);
 	--color-map-lodging: var(--map-lodging);
 	--color-map-lodging-foreground: var(--map-lodging-foreground);
 
@@ -277,4 +280,25 @@
 	a:not([data-slot]) {
 		@apply text-link underline-offset-4 hover:underline;
 	}
+}
+
+/* Map popups use the card colours, so they follow dark mode. */
+.stayspot-popup .maplibregl-popup-content {
+	@apply bg-card text-card-foreground shadow-elevated overflow-hidden rounded-lg border p-0;
+}
+.stayspot-popup.maplibregl-popup-anchor-top .maplibregl-popup-tip,
+.stayspot-popup.maplibregl-popup-anchor-top-left .maplibregl-popup-tip,
+.stayspot-popup.maplibregl-popup-anchor-top-right .maplibregl-popup-tip {
+	border-bottom-color: var(--card);
+}
+.stayspot-popup.maplibregl-popup-anchor-bottom .maplibregl-popup-tip,
+.stayspot-popup.maplibregl-popup-anchor-bottom-left .maplibregl-popup-tip,
+.stayspot-popup.maplibregl-popup-anchor-bottom-right .maplibregl-popup-tip {
+	border-top-color: var(--card);
+}
+.stayspot-popup.maplibregl-popup-anchor-left .maplibregl-popup-tip {
+	border-right-color: var(--card);
+}
+.stayspot-popup.maplibregl-popup-anchor-right .maplibregl-popup-tip {
+	border-left-color: var(--card);
 }

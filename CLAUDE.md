@@ -102,11 +102,13 @@ The `mongodb-*` skills say to use the MongoDB MCP server when one is available. 
 `web/` is SvelteKit 3 with Svelte 5, Tailwind v4, shadcn-svelte (style `vega`, Lucide icons) and `svelte-adapter-bun`. Run `bun run check` there for type and Svelte checks.
 
 - The look comes from `DESIGN.md` at the repo root. Its tokens live in `web/src/routes/layout.css` as shadcn variables plus `text-display-1` … `text-eyebrow`, `shadow-soft`, `shadow-elevated` and the `--radius-*` scale. `/design` shows every token and component.
-- Use semantic tokens (`bg-primary`, `text-link`, `text-muted-foreground`). Blue is for actions and links only. `chart-1` … `chart-5` passed the dataviz validator in both modes, so keep their order.
+- Use semantic tokens (`bg-primary`, `text-link`, `text-muted-foreground`). Blue is for actions and links only. Filled rating stars use `--rating` (amber). `chart-1` … `chart-5` passed the dataviz validator in both modes, so keep their order.
 - Import `cn` and `tv` from `#lib/utils.js`, never straight from `cn` or `tailwind-variants`. Both carry a merge config for the custom type scale. Without it they drop `text-heading-3` when a colour class sits next to it.
 - `web/node_modules` holds Windows binaries, so run `bun` commands in `web/` on the host, not in the container.
 - `web/src/lib/` layout: `api/` (typed client, `unwrap()`, `ApiError`, query keys and options in `queries.ts`), `state/actor.svelte.ts` (role and guest, in localStorage), `components/{app,data,states,catalog,reviews,map}`, `features/<screen>/`, `format.ts` (money in paise, `Intl` dates), `url.ts` (`setParams` and typed param readers), `motion.svelte.ts` (reduced motion). Filters, sort, page and tabs live in the URL.
-- Wrap every query-driven region in `QueryBoundary` (loading, empty, error). Errors show `ApiError.message` as is; `errorInfo` in `api/errors.ts` maps each `code` to a title and next step.
+- Roles: `Actor` in `state/actor.svelte.ts` is a guest (logged in or not) or a manager. `actor.guestId` is null in manager mode, so a manager is never tied to a guest; the stored guest comes back on switching to guest mode. `actor.logIn()` opens the one `LoginDialog`. Gate pages with `AccessGate` (`login` or `manager`), and show a guest only their own bookings and wallet. The README has the full who-sees-what table.
+- Wrap every query-driven region in `QueryBoundary` (loading, empty, error). Show errors with `userMessage()` from `api/errors.ts`, never `ApiError.message`: the API writes its messages for developers. `errorInfo` maps each `code` to a title, icon and plain text.
+- UI copy is for guests and managers, not graders. Do not name tables, functions, indexes, triggers, collections, pipelines or the seeder in the interface. Those belong in the README and `docs/`.
 - SvelteKit 3 changed some APIs: environment variables are declared in `src/env.ts` with `defineEnvVars` and read from `$app/env/private`, `Handle` comes from `@sveltejs/kit/hooks`, `browser` from `$app/env`, and `goto` takes `{ replace, reset: false }`.
 - Tailwind in the dev server does not pick up `.svelte` files created after it started. Restart the dev server after adding files, or new classes look missing.
 - MapLibre:
@@ -116,6 +118,8 @@ The `mongodb-*` skills say to use the MongoDB MCP server when one is available. 
   - MapLibre throws on feature state while a style loads. Set feature state and add images only when the style is ready (see the hover effect and `addLodgingIcon` in `routes/map/+page.svelte`), not with `<FeatureState>` or `<Image>`.
   - Name custom images with a `stayspot-` prefix. The basemap sprite already has `lodging` and others.
   - `--map-lodging` and `--map-lodging-foreground` in `layout.css` colour the pink property markers.
+  - `/map` is full-bleed: `AppShell` and `+layout.svelte` drop the page padding and fix the height for that route only. The hotspot panel and density chart are manager-only, floating over the map on wide screens and in a bottom sheet on narrow ones. Property popups use `<Popup class="stayspot-popup">`, styled in `layout.css`.
+  - Playwright: move the mouse in steps (`page.mouse.move(x, y, { steps })`) to trigger MapLibre layer hovers, and stub the OpenFreeMap style with `page.route` when a test needs the markers. The tile host can stall under repeated test loads.
 - Card titles are level-2 headings (`role="heading"` in the generated `shadcn/card/card-title.svelte`), so sections inside cards use `h3`. `EmptyState` takes `level` when it is the whole page.
 
 MCP servers in `.mcp.json`:

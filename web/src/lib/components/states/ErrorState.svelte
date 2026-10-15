@@ -3,7 +3,7 @@
 	import * as Alert from '#lib/components/shadcn/alert/index.js';
 	import { Button } from '#lib/components/shadcn/button/index.js';
 	import { Spinner } from '#lib/components/shadcn/spinner/index.js';
-	import { describeError, toApiError } from '#lib/api/errors.js';
+	import { describeError, toApiError, userMessage } from '#lib/api/errors.js';
 	import type { Snippet } from 'svelte';
 
 	type Props = {
@@ -28,7 +28,7 @@
 	<info.icon />
 	<Alert.Title>{title ?? info.title}</Alert.Title>
 	<Alert.Description>
-		<p>{apiError.message}</p>
+		<p>{userMessage(apiError)}</p>
 		{#if onretry || children}
 			<div class="mt-2 flex flex-wrap gap-2">
 				{#if onretry}
