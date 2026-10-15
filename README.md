@@ -4,7 +4,7 @@ StaySpot is a vacation rental system for Hyderabad. This repository extends the 
 
 - Assignment 1 repository: https://github.com/rashhmi1/stayspot-database-a1
 - Assignment 2 repository: https://github.com/mglsj/ssd-a2-g5
-- Final commit: `0cfee8d753e728e490f3448e4866fb99cfa8f7d1`
+- Final commit: `dcdf159ccc756eb8a22fe3656e3f3a8244f5d357`
 - Demo video: https://youtu.be/Qov0KKMWgYM
 
 ## Contributions

@@ -76,14 +76,32 @@ def check_required() -> None:
         sys.exit(f"error: missing required paths: {', '.join(missing)}")
 
 
+def commit_named_in(text: str) -> str | None:
+    # The README cannot name its own commit (that commit does not exist yet), so accept any
+    # hash in the README that resolves to a commit in this repository.
+    for candidate in re.findall(r"\b[0-9a-f]{7,40}\b", text):
+        result = subprocess.run(
+            ["git", "-C", str(ROOT), "rev-parse", "--verify", "-q", f"{candidate}^{{commit}}"],
+            capture_output=True, text=True,
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+    return None
+
+
 def check_readme(team: str) -> list[str]:
     warnings = []
     text = (ROOT / "README.md").read_text(encoding="utf-8")
     if not re.search(r"https://github\.com/\S+", text):
         warnings.append("README.md has no GitHub repository URL")
-    head = git("rev-parse", "HEAD").strip()
-    if head not in text and head[:7] not in text:
-        warnings.append(f"README.md does not mention the current commit {head[:7]}")
+    named = commit_named_in(text)
+    if named is None:
+        warnings.append("README.md names no commit that exists in this repository")
+    else:
+        # Files that differ from the named commit (other than the README) would not be in that commit.
+        changed = [p for p in git("diff", "--name-only", named).splitlines() if p != "README.md"]
+        if changed:
+            warnings.append(f"files changed since the commit named in README ({named[:7]}): {', '.join(changed[:5])}")
     if re.search(r"\bTODO\b", text):
         warnings.append("README.md still contains TODO markers")
     if f"{team}_a1b" not in text and team not in text:
