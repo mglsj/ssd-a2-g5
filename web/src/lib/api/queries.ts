@@ -31,6 +31,8 @@ export type MovingAverage = Success<Awaited<ReturnType<typeof api.analytics['mov
 export type Ranking = Success<Awaited<ReturnType<typeof api.analytics.rank.$get>>>;
 export type SummaryPage = Success<Awaited<ReturnType<typeof api.analytics.summary.$get>>>;
 export type AuditPage = Success<Awaited<ReturnType<(typeof api.guests)[':id']['audit']['$get']>>>;
+export type ReviewDraft = Parameters<typeof api.reviews.$post>[0]['json'];
+export type ReviewEligibility = Success<Awaited<ReturnType<typeof api.reviews.eligibility.$get>>>;
 export type Hotspots = Success<Awaited<ReturnType<typeof api.map.hotspots.$get>>>;
 export type Hotspot = Hotspots['features'][number];
 export type PinPage = Success<Awaited<ReturnType<typeof api.map.pins.$get>>>;
@@ -72,7 +74,8 @@ export const keys = {
 	reviews: {
 		all: ['reviews'] as const,
 		facets: (propertyId: string | null) => ['reviews', 'facets', propertyId] as const,
-		list: (query: ReviewListQuery) => ['reviews', 'list', query] as const
+		list: (query: ReviewListQuery) => ['reviews', 'list', query] as const,
+		eligibility: (guestId: string, propertyId: string) => ['reviews', 'eligibility', guestId, propertyId] as const
 	},
 	map: {
 		all: ['map'] as const,
@@ -174,6 +177,12 @@ export const queries = {
 						api.reviews.analytics.$get({ query: propertyId ? { property_id: propertyId } : {} }, init(signal))
 					)
 			}),
+		eligibility: (guestId: string, propertyId: string) =>
+			queryOptions({
+				queryKey: keys.reviews.eligibility(guestId, propertyId),
+				queryFn: ({ signal }) =>
+					unwrap(api.reviews.eligibility.$get({ query: { guest_id: guestId, property_id: propertyId } }, init(signal)))
+			}),
 		list: (query: ReviewListQuery) =>
 			queryOptions({
 				queryKey: keys.reviews.list(query),
@@ -237,7 +246,8 @@ export const queries = {
 
 // Writes. Each returns the API's body, or throws an ApiError the screen shows by its code.
 export const mutations = {
-	book: (body: { guest_id: string; property_id: string; nights: number }) => unwrap(api.bookings.$post({ json: body })),
+	book: (body: { guest_id: string; property_id: string; nights: number; check_in_date: string }) => unwrap(api.bookings.$post({ json: body })),
+	createReview: (body: ReviewDraft) => unwrap(api.reviews.$post({ json: body })),
 	topUp: (id: string, amount: string) => unwrap(api.guests[':id']['top-up'].$post({ param: { id }, json: { amount } })),
 	pins: (query: PinQuery, signal?: AbortSignal) => unwrap(api.map.pins.$get({ query }, signal ? init(signal) : undefined)),
 	dropPin: (body: { lat: number; lng: number; user_id?: string }) => unwrap(api.map.pins.$post({ json: body })),

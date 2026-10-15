@@ -13,6 +13,7 @@
 	import QueryBoundary from '#lib/components/states/QueryBoundary.svelte';
 	import { queries } from '#lib/api/queries.js';
 	import { count } from '#lib/format.js';
+	import WriteReview from '#lib/features/reviews/WriteReview.svelte';
 
 	let { propertyId, class: className }: { propertyId: string; class?: string } = $props();
 
@@ -29,6 +30,8 @@
 		<Card.Description>What guests say about this stay</Card.Description>
 	</Card.Header>
 	<Card.Content class="flex flex-col gap-5">
+		<WriteReview {propertyId} />
+
 		<QueryBoundary query={facets} isEmpty={(data) => data.overall_summary.total_reviews === 0}>
 			{#snippet loading()}
 				<div class="flex flex-col gap-2">

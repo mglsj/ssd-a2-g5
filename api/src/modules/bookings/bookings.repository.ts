@@ -14,7 +14,7 @@ import type {
 
 const bookingColumns = () => sql`
   b.id, b.guest_id, g.name AS guest_name, b.property_id, p.title AS property_title,
-  b.nights, b.total_cost::text, b.status, b.created_at
+  b.nights, b.check_in_date::text, b.total_cost::text, b.status, b.created_at
 `;
 const withNames = () => sql`
   bookings b
@@ -51,7 +51,7 @@ export async function findBooking(id: string): Promise<Booking | null> {
 /** Workflow 1. Database errors (insufficient balance, unknown guest) propagate to the error handler. */
 export async function createBooking(body: CreateBookingBody): Promise<BookingCreated> {
   const [result] = await sql`
-    CALL sp_execute_booking(${body.guest_id}::uuid, ${body.property_id}::uuid, ${body.nights}::int,
+    CALL sp_execute_booking(${body.guest_id}::uuid, ${body.property_id}::uuid, ${body.nights}::int, ${body.check_in_date ?? null}::date,
       NULL, NULL, NULL, NULL, NULL)
   `;
   const [booking, auditLog] = await Promise.all([findBooking(result.booking_id), findAuditEntry(result.audit_log_id)]);
@@ -68,6 +68,11 @@ export async function updateBookingStatus(id: string, status: BookingStatus): Pr
     const [result] = await sql`CALL sp_update_booking_status(${id}::uuid, ${status}, NULL)`;
     return { booking: (await findBooking(id))!, previous_status: result.previous_status };
   } catch (error) {
+    // SP001 is raised when the stay has not started yet.
+    if (isPostgresError(error) && error.errno === "SP001") {
+      const date = error.message.match(/opens on (\d{4}-\d{2}-\d{2})/)?.[1] ?? null;
+      throw new ApiError(409, "TOO_EARLY_TO_CHECK_IN", error.message, { check_in_date: date });
+    }
     // 22023 from this procedure means a forbidden transition, not bad input.
     if (isPostgresError(error) && error.errno === "22023") {
       const match = error.message.match(/A (\w+) booking cannot move to (\w+)/);

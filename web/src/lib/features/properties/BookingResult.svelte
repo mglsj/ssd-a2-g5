@@ -8,6 +8,7 @@
 	import Money from '#lib/components/data/Money.svelte';
 	import StatusBadge from '#lib/components/data/StatusBadge.svelte';
 	import AuditRow from '#lib/features/wallet/AuditRow.svelte';
+	import { longDay } from '#lib/format.js';
 	import type { BookingResult } from '#lib/api/queries.js';
 
 	let { result, onreset }: { result: BookingResult; onreset: () => void } = $props();
@@ -24,6 +25,8 @@
 		<Card.Title>{booking.nights} {booking.nights === 1 ? 'night' : 'nights'} for {booking.guest_name}</Card.Title>
 		<Card.Description class="flex flex-wrap items-center gap-x-2 gap-y-1">
 			<Money value={booking.total_cost} class="text-foreground font-medium" />
+			<span aria-hidden="true">·</span>
+			<span>From {longDay(booking.check_in_date)}</span>
 			<span aria-hidden="true">·</span>
 			<StatusBadge status={booking.status} />
 			<span aria-hidden="true">·</span>

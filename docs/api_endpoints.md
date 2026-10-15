@@ -39,11 +39,14 @@ Every error has the same shape:
 |---|---|---|---|
 | API validation | Missing or malformed field, bad UUID, bad date, unreadable JSON body. `detail.issues` lists each `{ path, message }` | 400 | `BAD_REQUEST` |
 | PostgreSQL `P0002` (`no_data_found`) | Guest, property or booking does not exist | 404 | `NOT_FOUND` |
-| PostgreSQL `22023` (`invalid_parameter_value`) from `sp_execute_booking` or `sp_top_up_wallet` | Nights outside 1 to 365, top-up amount not positive | 422 | `INVALID_INPUT` |
+| PostgreSQL `22023` (`invalid_parameter_value`) from `sp_execute_booking` or `sp_top_up_wallet` | Nights outside 1 to 365, check-in outside today to +365 days, top-up amount not positive | 422 | `INVALID_INPUT` |
 | PostgreSQL `22003` (`numeric_value_out_of_range`) | A top-up would push the wallet past 99,999,999.99 | 422 | `INVALID_INPUT` |
 | PostgreSQL `22023` from `sp_update_booking_status` | Transition other than CONFIRMED to CHECKED_IN to COMPLETED | 409 | `INVALID_TRANSITION` |
+| PostgreSQL `SP001` from `sp_update_booking_status` | Check-in before the booking's check-in date | 409 | `TOO_EARLY_TO_CHECK_IN` |
 | PostgreSQL `23514`, constraint `chk_guests_wallet_nonnegative` | Wallet cannot cover the booking | 409 | `INSUFFICIENT_BALANCE` |
 | PostgreSQL `23505`, constraint `idx_active_stay` | Guest already has a CHECKED_IN booking | 409 | `ALREADY_CHECKED_IN` |
+| Review without a COMPLETED stay at the property | Checked in the API before the insert | 403 | `NO_COMPLETED_STAY` |
+| Every COMPLETED stay at the property already has a review | One review per stay | 409 | `ALREADY_REVIEWED` |
 | MongoDB error `121` | Document fails the collection validator | 422 | `INVALID_INPUT` |
 | Connection failure | A database is down | 503 | `DB_UNAVAILABLE` |
 | Anything else | Unexpected error (logged on the server) | 500 | `INTERNAL` |
@@ -177,20 +180,20 @@ Fields vary between documents. `404` if the property has no catalog document, wh
 | `status` | `CONFIRMED`, `CHECKED_IN` or `COMPLETED` |
 | `page`, `limit` | Pagination, newest first |
 
-Item: `{ "id", "guest_id", "guest_name", "property_id", "property_title", "nights", "total_cost", "status", "created_at" }`
+Item: `{ "id", "guest_id", "guest_name", "property_id", "property_title", "nights", "check_in_date", "total_cost", "status", "created_at" }`
 
 ### `POST /api/bookings`
 
-Books a stay with `CALL sp_execute_booking(guest_id, property_id, nights, NULL, NULL, NULL, NULL, NULL)`.
+Books a stay with `CALL sp_execute_booking(guest_id, property_id, nights, check_in_date, NULL, NULL, NULL, NULL, NULL)`.
 The procedure locks the guest row, deducts `base_price * nights`, inserts a CONFIRMED booking, and the trigger writes a DEBIT audit row. All of this commits together or not at all.
 
-Body: `{ "guest_id": "…", "property_id": "…", "nights": 3 }`
+Body: `{ "guest_id": "…", "property_id": "…", "nights": 3, "check_in_date": "2026-11-02" }`. `check_in_date` is optional. It defaults to today and must fall between today and 365 days ahead (otherwise `INVALID_INPUT`).
 
 `201`:
 
 ```json
 {
-  "booking": { "id": "…", "guest_id": "…", "guest_name": "…", "property_id": "…", "property_title": "…", "nights": 3, "total_cost": "9000.00", "status": "CONFIRMED", "created_at": "…" },
+  "booking": { "id": "…", "guest_id": "…", "guest_name": "…", "property_id": "…", "property_title": "…", "nights": 3, "check_in_date": "2026-11-02", "total_cost": "9000.00", "status": "CONFIRMED", "created_at": "…" },
   "balance_before": "13200.00",
   "balance_after": "4200.00",
   "audit_log": { "id": "…", "action_type": "DEBIT", "amount_changed": "9000.00", "balance_after": "4200.00", "timestamp": "…" }
@@ -227,6 +230,7 @@ Errors:
 
 | `code` | When | `detail` |
 |---|---|---|
+| `TOO_EARLY_TO_CHECK_IN` | Check-in before the booking's `check_in_date` | `{ "check_in_date" }` |
 | `ALREADY_CHECKED_IN` | The guest already has a CHECKED_IN booking | `{ "active_booking_id" }` so the UI can link to it |
 | `INVALID_TRANSITION` | Anything other than CONFIRMED to CHECKED_IN or CHECKED_IN to COMPLETED | `{ "from", "to" }` |
 | `NOT_FOUND` | Unknown booking | |
@@ -428,12 +432,22 @@ Runs `buildReviewAnalyticsPipeline` from `mongo/03_workflow4_facet.js` on `Prope
 
 Item: `{ "id", "property_id", "guest_id", "booking_id", "rating", "sub_ratings", "location_tags", "review_text", "created_at" }`. `id` is the MongoDB `_id` as a hex string.
 
+### `GET /api/reviews/eligibility`
+
+Query: `guest_id` and `property_id`, both required. Returns `{ "eligible", "booking_id", "reason" }`. `reason` is `ELIGIBLE`, `NO_COMPLETED_STAY` or `ALREADY_REVIEWED`. `booking_id` is the oldest COMPLETED stay at the property with no review yet.
+
+### `POST /api/reviews`
+
+Body: `guest_id`, `property_id`, `rating` (whole number, 1 to 5), `review_text` (3 to 2000 characters), `location_tags` (1 to 5 from the seeded tag list) and optional `sub_ratings`. The API looks up the guest's COMPLETED stay in PostgreSQL, then inserts into `PropertyReviews` with that `booking_id`. Returns 201 with the review. A guest can leave one review per completed stay.
+
+Errors: `NO_COMPLETED_STAY` (403), `ALREADY_REVIEWED` (409), `BAD_REQUEST` (400).
+
 ## Which screen uses what
 
 | Screen | Endpoints |
 |---|---|
 | Guest switcher | `GET /guests` (with `sort=balance_asc` or `has_active_stay` for demo picks), `GET /guests/:id` |
-| Properties list and detail | `GET /properties`, `GET /properties/:id`, `GET /properties/:id/amenities`, `GET /reviews/analytics?property_id=`, `GET /reviews` |
+| Properties list and detail | `GET /properties`, `GET /properties/:id`, `GET /properties/:id/amenities`, `GET /reviews/analytics?property_id=`, `GET /reviews`, `GET /reviews/eligibility`, `POST /reviews` |
 | Book a stay | `GET /guests/:id`, `POST /bookings`, `POST /guests/:id/top-up` |
 | Guests and bookings (operations) | `GET /guests`, `GET /bookings`, `PATCH /bookings/:id/status` |
 | Audit trail | `GET /guests/:id/audit` |

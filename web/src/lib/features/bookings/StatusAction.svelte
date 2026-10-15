@@ -17,7 +17,7 @@
 	import { Spinner } from '#lib/components/shadcn/spinner/index.js';
 	import { ApiError, toApiError, userMessage } from '#lib/api/errors.js';
 	import { applyBooking, keys, mutations, type Booking } from '#lib/api/queries.js';
-	import { statusLabel } from '#lib/format.js';
+	import { isoDate, longDay, statusLabel } from '#lib/format.js';
 
 	type Props = {
 		booking: Booking;
@@ -31,6 +31,8 @@
 
 	const queryClient = useQueryClient();
 	const step = $derived(nextStep[booking.status]);
+	// Check-in opens on the booked day. The API enforces this too.
+	const notYet = $derived(step?.to === 'CHECKED_IN' && booking.check_in_date > isoDate(new Date()));
 
 	const change = createMutation(() => ({
 		mutationFn: (to: BookingStatus) => mutations.setStatus(booking.id, to),
@@ -47,6 +49,9 @@
 			const error = toApiError(raw);
 			if (error.code === 'ALREADY_CHECKED_IN' && onconflict) {
 				onconflict(error, booking);
+			} else if (error.code === 'TOO_EARLY_TO_CHECK_IN') {
+				toast.error('Too early to check in', { description: userMessage(error) });
+				queryClient.invalidateQueries({ queryKey: keys.bookings.all });
 			} else if (error.code === 'INVALID_TRANSITION') {
 				// The row was stale, for example changed in another tab. Show the move and refresh.
 				const label = (status: unknown) => statusLabel[status as BookingStatus] ?? String(status);
@@ -68,7 +73,8 @@
 		{size}
 		variant={step.to === 'CHECKED_IN' ? 'default' : 'outline'}
 		class={className}
-		disabled={change.isPending}
+		disabled={change.isPending || notYet}
+		title={notYet ? `Check-in opens on ${longDay(booking.check_in_date)}` : undefined}
 		onclick={() => change.mutate(step.to)}
 		aria-label="{step.label} {booking.guest_name} at {booking.property_title}"
 	>

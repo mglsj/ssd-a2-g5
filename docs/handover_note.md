@@ -35,11 +35,12 @@ We also found problems by reading the code:
 ### Schema and procedures
 
 - The status CHECK uses `CHECKED_IN`, matching the index and the seeder.
+- `bookings` has a `check_in_date` column (DATE, default today). `sp_execute_booking` takes it as a fourth argument (NULL means today) and rejects dates before today or more than 365 days ahead. The seeder sets it to the booking date. Without it a guest could not choose when a stay starts.
 - `bookings` has a `nights` column. The booking procedure prices a stay as `base_price * nights`, and the materialized view sums real nights.
 - New CHECK constraints cover prices, costs, coordinates and audit amounts, and every timestamp is NOT NULL.
 - `wallet_audit_logs` is append-only: a trigger rejects UPDATE and DELETE. The audit trigger stamps rows with `clock_timestamp()`, so two wallet changes in one transaction keep their order.
 - `sp_execute_booking` raises an error that names the problem (insufficient balance, unknown guest or property, invalid nights), so the front end can show it. It returns the booking id, the balances before and after, and the audit row id.
-- New procedures: `sp_update_booking_status` (CONFIRMED to CHECKED_IN to COMPLETED; a second check-in fails on `idx_active_stay`, which is how the UI demonstrates the partial index) and `sp_top_up_wallet`.
+- New procedures: `sp_update_booking_status` (CONFIRMED to CHECKED_IN to COMPLETED, and no check-in before `check_in_date`, which raises SQLSTATE `SP001`; a second check-in fails on `idx_active_stay`, which is how the UI demonstrates the partial index) and `sp_top_up_wallet`.
 - Workflow 2 is two SQL functions: a 7-day moving average per property over a gap-free daily grid, and a DENSE_RANK of properties. Two partial covering indexes remove the sequential scan.
 - `refresh_mv_property_summary()` records its time in `mv_refresh_log` for the "last refreshed" label.
 - Every SQL file can be re-run on an existing database.

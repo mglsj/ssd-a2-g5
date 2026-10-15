@@ -2,6 +2,8 @@ import CircleAlertIcon from '@lucide/svelte/icons/circle-alert';
 import DatabaseIcon from '@lucide/svelte/icons/database';
 import SearchXIcon from '@lucide/svelte/icons/search-x';
 import WalletIcon from '@lucide/svelte/icons/wallet';
+import MessageSquareOffIcon from '@lucide/svelte/icons/message-square-off';
+import CalendarClockIcon from '@lucide/svelte/icons/calendar-clock';
 import BedDoubleIcon from '@lucide/svelte/icons/bed-double';
 import ArrowRightLeftIcon from '@lucide/svelte/icons/arrow-right-left';
 import PencilLineIcon from '@lucide/svelte/icons/pencil-line';
@@ -14,6 +16,9 @@ export const ERROR_CODES = [
 	'INVALID_TRANSITION',
 	'INSUFFICIENT_BALANCE',
 	'ALREADY_CHECKED_IN',
+	'TOO_EARLY_TO_CHECK_IN',
+	'NO_COMPLETED_STAY',
+	'ALREADY_REVIEWED',
 	'DB_UNAVAILABLE',
 	'INTERNAL'
 ] as const;
@@ -69,6 +74,21 @@ export const errorInfo: Record<ErrorCode, { title: string; icon: Component; text
 		title: 'Guest is already checked in',
 		icon: BedDoubleIcon,
 		text: 'This guest is checked in to another stay. Complete that stay first.'
+	},
+	NO_COMPLETED_STAY: {
+		title: 'No completed stay yet',
+		icon: MessageSquareOffIcon,
+		text: 'You can review a property after you have completed a stay there.'
+	},
+	ALREADY_REVIEWED: {
+		title: 'Already reviewed',
+		icon: MessageSquareOffIcon,
+		text: 'Every completed stay at this property already has your review.'
+	},
+	TOO_EARLY_TO_CHECK_IN: {
+		title: 'Too early to check in',
+		icon: CalendarClockIcon,
+		text: 'This stay has not started yet. Check-in opens on the booked date.'
 	},
 	INVALID_TRANSITION: {
 		title: 'That status change is not allowed',

@@ -47,6 +47,7 @@ export const updateStatus = createRoute({
   summary: "Move a booking forward with sp_update_booking_status",
   description:
     "Only CONFIRMED to CHECKED_IN and CHECKED_IN to COMPLETED are allowed (`INVALID_TRANSITION` otherwise, with `{ from, to }`). " +
+    "A check-in before the booking's `check_in_date` returns `TOO_EARLY_TO_CHECK_IN` with `{ check_in_date }`. " +
     "A second check-in for the same guest hits the partial unique index `idx_active_stay` and returns `ALREADY_CHECKED_IN` with `{ active_booking_id }`.",
   request: { params: IdParam, body: jsonBody(UpdateStatusBody) },
   responses: { 200: json(StatusChanged, "The updated booking"), ...errors(400, 404, 409) },
