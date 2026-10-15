@@ -13,7 +13,7 @@ A guest can browse stays in Hyderabad, book one, top up their wallet and read re
 | Member | Roll number | Contribution |
 |---|---|---|
 | Lakshyajeet Singh Jalal | 2026201063 | Frontend |
-| TODO | TODO | TODO |
+| Subham Sarma | 2026202006 | Backend |
 | TODO | TODO | TODO |
 | TODO | TODO | TODO |
 
