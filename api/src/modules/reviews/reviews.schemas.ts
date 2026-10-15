@@ -48,3 +48,65 @@ export const ReviewListQuery = PageQuery.extend({
 export type ReviewAnalytics = z.infer<typeof ReviewAnalytics>;
 export type Review = z.infer<typeof Review>;
 export type ReviewListQuery = z.infer<typeof ReviewListQuery>;
+
+export const REVIEW_TAGS = [
+  "it_corridor",
+  "walkable",
+  "metro_station",
+  "restaurants",
+  "nightlife",
+  "shopping_mall",
+  "lake_view",
+  "parks",
+  "museums",
+  "tourist_attractions",
+  "quiet_neighborhood",
+  "central_location",
+  "street_food",
+  "cafes",
+  "grocery_stores",
+  "fitness_center",
+  "hospital_nearby",
+  "airport_convenient",
+  "rock_formations",
+  "gated_community",
+  "historic_area",
+  "temple_nearby",
+] as const;
+
+const SubRating = z.number().int().min(1).max(5);
+
+export const CreateReviewBody = z
+  .object({
+    guest_id: Uuid,
+    property_id: Uuid,
+    rating: z.number().int().min(1).max(5),
+    review_text: z.string().trim().min(3).max(2000),
+    location_tags: z.array(z.enum(REVIEW_TAGS)).min(1).max(5),
+    sub_ratings: z
+      .object({
+        cleanliness: SubRating,
+        accuracy: SubRating,
+        communication: SubRating,
+        location: SubRating,
+        check_in: SubRating,
+        value: SubRating,
+      })
+      .partial()
+      .optional(),
+  })
+  .openapi("CreateReviewBody");
+
+export const EligibilityQuery = z.object({ guest_id: Uuid, property_id: Uuid });
+
+export const Eligibility = z
+  .object({
+    eligible: z.boolean(),
+    booking_id: Uuid.nullable().openapi({ description: "The completed stay the review would be tied to" }),
+    reason: z.enum(["ELIGIBLE", "NO_COMPLETED_STAY", "ALREADY_REVIEWED"]),
+  })
+  .openapi("ReviewEligibility");
+
+export type CreateReviewBody = z.infer<typeof CreateReviewBody>;
+export type Eligibility = z.infer<typeof Eligibility>;
+export type EligibilityQuery = z.infer<typeof EligibilityQuery>;

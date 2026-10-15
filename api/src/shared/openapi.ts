@@ -25,6 +25,7 @@ export const jsonBody =<T extends z.ZodType>(schema: T) => ({
 
 const errorDescriptions = {
   400: "Malformed request",
+  403: "Not allowed for this guest",
   404: "Record not found",
   409: "Conflicts with the current state",
   422: "Rejected by the database",

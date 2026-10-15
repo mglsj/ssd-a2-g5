@@ -2,6 +2,7 @@ import type { Document } from "mongodb";
 import { searchSessions } from "../../db/mongo.ts";
 import { buildHotspotPipeline, buildRadialDensityPipeline } from "../../db/pipelines.ts";
 import { type Feature, type Point, point, toFeature } from "../../shared/geojson.ts";
+import { ttlCache } from "../../shared/ttl-cache.ts";
 import { listAllProperties } from "../properties/properties.repository.ts";
 import type { PropertyFilter } from "../properties/properties.schemas.ts";
 import type {
@@ -28,8 +29,17 @@ type HotspotDocument = Omit<HotspotProperties, "rank" | "latest_search_at"> & {
   latest_search_at: Date;
 };
 
+// Both aggregations scan every search in the window (hundreds of thousands of
+// rows with the full seed) and every open map polls them. Share one run per window.
+const CACHE_MS = 5_000;
+const STALE_MS = 60_000;
+const windowKey = (query: SearchWindowQuery & { sort?: string }) =>
+  [query.lat, query.lng, query.radius, query.since, query.sort].join("|");
+
 /** Workflow 3, with each grid cell as a GeoJSON point. */
-export async function findHotspots(query: HotspotQuery): Promise<Feature<Point, HotspotProperties>[]> {
+export const findHotspots = ttlCache(CACHE_MS, STALE_MS, windowKey, loadHotspots);
+
+async function loadHotspots(query: HotspotQuery): Promise<Feature<Point, HotspotProperties>[]> {
   const cells = await searchSessions
     .aggregate<HotspotDocument>(buildHotspotPipeline({ ...windowOptions(query), sortBy: query.sort }))
     .toArray();
@@ -42,8 +52,9 @@ export async function findHotspots(query: HotspotQuery): Promise<Feature<Point, 
   );
 }
 
-export const findDensityRings = (query: SearchWindowQuery) =>
-  searchSessions.aggregate<Ring>(buildRadialDensityPipeline(windowOptions(query))).toArray();
+export const findDensityRings = ttlCache(CACHE_MS, STALE_MS, windowKey, (query: SearchWindowQuery) =>
+  searchSessions.aggregate<Ring>(buildRadialDensityPipeline(windowOptions(query))).toArray(),
+);
 
 type PinDocument = {
   _id: { toHexString(): string };
@@ -96,6 +107,8 @@ export async function dropPin(body: DropPinBody): Promise<Feature<Point, PinProp
     created_at: new Date(),
   };
   const result = await searchSessions.insertOne({ ...document });
+  findHotspots.clear();
+  findDensityRings.clear();
   return pinFeature({ _id: result.insertedId, ...document });
 }
 

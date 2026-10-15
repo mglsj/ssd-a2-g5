@@ -8,6 +8,15 @@ A guest can browse stays in Hyderabad, book one, top up their wallet and read re
 - Final commit: `TODO: fill in the hash of the submitted commit`
 - Demo video: `TODO: add the link to the 5 minute demo`
 
+## Contributions
+
+| Member | Roll number | Contribution |
+|---|---|---|
+| Lakshyajeet Singh Jalal | 2026201063 | Frontend |
+| TODO | TODO | TODO |
+| TODO | TODO | TODO |
+| TODO | TODO | TODO |
+
 ## Repository layout
 
 ```
@@ -200,11 +209,3 @@ This rewrites `performance/postgres_explain_analyzes.txt` and `performance/mongo
 bash scripts/regenerate_performance.sh
 ```
 
-## Contributions
-
-| Member | Roll number | Contribution |
-|---|---|---|
-| TODO | TODO | TODO |
-| TODO | TODO | TODO |
-| TODO | TODO | TODO |
-| TODO | TODO | TODO |

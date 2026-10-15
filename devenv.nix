@@ -31,6 +31,8 @@
   languages.javascript = {
     enable = true;
     directory = "./web";
-    bun.enable = true;
+    bun = {
+      enable = true;
+    };
   };
 }
