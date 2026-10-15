@@ -15,7 +15,7 @@ A guest can browse stays in Hyderabad, book one, top up their wallet and read re
 | Lakshyajeet Singh Jalal | 2026201063 | Frontend |
 | TODO | TODO | TODO |
 | TODO | TODO | TODO |
-| TODO | TODO | TODO |
+| Sourav Sahu | 2026202001 | UI research and layout planning |
 
 ## Repository layout
 
